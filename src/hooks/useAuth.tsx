@@ -56,43 +56,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }, 3000);
 
-    // Get initial session
-    console.log('1. A pedir a sessão inicial ao Supabase...');
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-      console.log('2. Resposta da sessão recebida:', session ? 'Sessão existe' : 'Sem sessão', error || '');
-      try {
-        if (error) throw error;
-        if (session?.user) {
-          console.log('3. A tentar ler a tabela profiles na Base de Dados...');
-          const profile = await fetchProfile(session.user.id, session.user.email ?? '');
-          console.log('4. Leitura da tabela profiles concluída!', profile);
-          if (isMounted) setUser(profile);
-        }
-      } catch (err) {
-        console.error('🔴 Erro na sessão inicial:', err);
-      } finally {
-        if (isMounted) {
-          clearTimeout(timeout);
-          setLoading(false);
-        }
-      }
-    });
-
-    // Subscribe to auth state changes (login / logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // O onAuthStateChange dispara automaticamente um evento 'INITIAL_SESSION' 
+    // mal o componente monta. Portanto, NÃO devemos chamar getSession() ao mesmo tempo
+    // para evitar deadlocks no navigator.locks do Supabase!
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       console.log('🔔 Evento AuthStateChange:', _event);
-      try {
-        if (session?.user) {
-          const profile = await fetchProfile(session.user.id, session.user.email ?? '');
-          if (isMounted) setUser(profile);
-        } else {
-          if (isMounted) setUser(null);
+      
+      // Usamos setTimeout para libertar a thread e evitar o deadlock no navigator.locks
+      // do Supabase, dado que o fetchProfile vai internamente chamar getSession().
+      setTimeout(async () => {
+        try {
+          if (session?.user) {
+            const profile = await fetchProfile(session.user.id, session.user.email ?? '');
+            if (isMounted) setUser(profile);
+          } else {
+            if (isMounted) setUser(null);
+          }
+        } catch (err) {
+          console.error('🔴 Erro no Auth State Change:', err);
+        } finally {
+          if (isMounted) {
+            clearTimeout(timeout);
+            setLoading(false);
+          }
         }
-      } catch (err) {
-        console.error('🔴 Erro no Auth State Change:', err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
+      }, 0);
     });
 
     return () => {

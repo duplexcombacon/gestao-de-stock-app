@@ -4,6 +4,7 @@ import {
   ArrowLeftRight, RotateCcw, Users, LogOut,
 } from 'lucide-react';
 import { cn } from '@/utils/formatters';
+import { useAuth } from '@/hooks/useAuth';
 
 const links = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -16,6 +17,16 @@ const links = [
 ];
 
 export function Sidebar() {
+  const { user, signOut } = useAuth();
+
+  // Helper to get initials (e.g. "João Caixa" -> "JC", or "admin@admin.com" -> "AA")
+  const getInitials = (name: string) => {
+    if (!name) return '??';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
+
   return (
     <aside className="hidden lg:flex flex-col w-60 h-screen bg-surface-raised border-r border-border fixed left-0 top-0">
       {/* Logo */}
@@ -54,13 +65,17 @@ export function Sidebar() {
       <div className="px-3 py-4 border-t border-border">
         <div className="flex items-center gap-3 px-3 py-2">
           <div className="size-8 rounded-full bg-surface-overlay flex items-center justify-center text-xs font-bold text-text-secondary">
-            JC
+            {getInitials(user?.name || user?.email || '')}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">João Caixa</p>
-            <p className="text-xs text-text-muted truncate">caixa@stock.pt</p>
+            <p className="text-sm font-medium truncate">{user?.name || 'Utilizador'}</p>
+            <p className="text-xs text-text-muted truncate">{user?.email}</p>
           </div>
-          <button className="text-text-muted hover:text-danger transition-colors cursor-pointer">
+          <button 
+            onClick={signOut}
+            className="text-text-muted hover:text-danger transition-colors cursor-pointer"
+            title="Sair"
+          >
             <LogOut size={16} />
           </button>
         </div>
