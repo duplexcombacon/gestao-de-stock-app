@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Pencil, Ban, Search, Info } from 'lucide-react';
+import { Shield, Pencil, Ban, Search, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -9,6 +9,13 @@ import { Table, type Column } from '@/components/ui/Table';
 import { formatDate } from '@/utils/formatters';
 import type { User, UserRole } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+const secondarySupabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL as string,
+  import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+  { auth: { persistSession: false, autoRefreshToken: false } }
+);
 
 const roleConfig: Record<UserRole, { label: string; variant: 'accent' | 'success' | 'warning' | 'default' }> = {
   admin: { label: 'Administrador', variant: 'accent' },
@@ -22,10 +29,12 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form, setForm] = useState({ name: '', role: 'caixa' as UserRole });
+  const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', role: 'caixa' as UserRole });
   const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -73,6 +82,35 @@ export default function AdminUsers() {
       alert('Erro ao guardar: ' + error.message);
     }
     setSaving(false);
+  };
+
+  const handleCreate = async () => {
+    if (!createForm.name || !createForm.email || !createForm.password) {
+      alert('Preenche todos os campos.');
+      return;
+    }
+    setCreating(true);
+    
+    // Usamos um cliente secundário (sem persistência) para não deslogar o Admin!
+    const { error } = await secondarySupabase.auth.signUp({
+      email: createForm.email,
+      password: createForm.password,
+      options: {
+        data: {
+          name: createForm.name,
+          role: createForm.role
+        }
+      }
+    });
+
+    if (error) {
+      alert('Erro ao criar utilizador: ' + error.message);
+    } else {
+      fetchUsers();
+      setShowCreateModal(false);
+      setCreateForm({ name: '', email: '', password: '', role: 'caixa' as UserRole });
+    }
+    setCreating(false);
   };
 
   const handleToggleStatus = async (user: User) => {
@@ -172,7 +210,7 @@ export default function AdminUsers() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button icon={<Info size={16} />} onClick={() => setShowInfoModal(true)}>
+        <Button icon={<UserPlus size={16} />} onClick={() => setShowCreateModal(true)}>
           Novo Utilizador
         </Button>
       </div>
@@ -232,28 +270,50 @@ export default function AdminUsers() {
         </div>
       </Modal>
 
-      {/* Info Modal about creation */}
+      {/* Create User Modal */}
       <Modal
-        open={showInfoModal}
-        onClose={() => setShowInfoModal(false)}
-        title="Adicionar Utilizadores"
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Adicionar Utilizador"
         size="sm"
       >
-        <div className="space-y-4 text-sm text-text-secondary">
-          <p>
-            Por motivos de segurança, o sistema <strong>não permite a criação manual de contas</strong> por administradores (para evitar problemas de roubo de sessão).
-          </p>
-          <div className="bg-surface-overlay p-4 rounded-lg border border-border">
-            <h4 className="font-semibold text-text-primary mb-2">Qual é o fluxo correto?</h4>
-            <ol className="list-decimal list-inside space-y-1">
-              <li>O novo funcionário regista-se no ecrã de Login.</li>
-              <li>A conta dele entra aqui no sistema como <Badge variant="warning">Funcionário</Badge> (predefinição).</li>
-              <li>Tu (Admin) clicas no botão de editar (✏️) ao lado do nome dele.</li>
-              <li>Alterar o papel dele para Gestor, Auditor ou Admin.</li>
-            </ol>
-          </div>
-          <div className="flex justify-end pt-2">
-            <Button onClick={() => setShowInfoModal(false)}>Percebido</Button>
+        <div className="space-y-4">
+          <Input 
+            label="Nome completo" 
+            placeholder="Ex: Ana Costa" 
+            value={createForm.name} 
+            onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))} 
+          />
+          <Input 
+            label="Email" 
+            type="email"
+            placeholder="ana@empresa.pt" 
+            value={createForm.email} 
+            onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))} 
+          />
+          <Input 
+            label="Password" 
+            type="password"
+            placeholder="••••••••" 
+            value={createForm.password} 
+            onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))} 
+          />
+          <Select
+            label="Papel"
+            options={[
+              { value: 'admin', label: 'Administrador — Acesso total' },
+              { value: 'gestor', label: 'Gestor — Inventário e relatórios' },
+              { value: 'caixa', label: 'Funcionário — Entradas/saídas e scan' },
+              { value: 'auditor', label: 'Auditor — Apenas leitura' },
+            ]}
+            value={createForm.role}
+            onChange={e => setCreateForm(f => ({ ...f, role: e.target.value as UserRole }))}
+          />
+          <div className="flex gap-3 pt-2">
+            <Button onClick={handleCreate} className="flex-1" disabled={creating}>
+              {creating ? 'A criar...' : 'Criar Utilizador'}
+            </Button>
+            <Button variant="ghost" onClick={() => setShowCreateModal(false)}>Cancelar</Button>
           </div>
         </div>
       </Modal>

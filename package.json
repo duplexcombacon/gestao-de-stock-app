@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
-    "react-zxing": "^2.0.0",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/react-query": "^5.100.13",
     "dexie": "^4.4.2",
@@ -20,6 +19,7 @@
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.15.1",
+    "react-zxing": "^2.1.0",
     "recharts": "^3.8.1",
     "tailwindcss": "^4.3.0"
   },
