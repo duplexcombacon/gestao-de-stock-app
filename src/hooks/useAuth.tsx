@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .single();
 
     if (error || !data) {
+      console.error('🔴 Erro ao ir buscar o perfil à DB:', error);
       // Fallback: use only auth data, role unknown
       return { id: userId, email, name: email, role: 'caixa', created_at: new Date().toISOString() };
     }
@@ -45,27 +46,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Listen to auth state changes on mount
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const profile = await fetchProfile(session.user.id, session.user.email ?? '');
-        setUser(profile);
+    let isMounted = true;
+
+    // ESCAPE HATCH: Se o Supabase encravar, libertamos a UI ao fim de 3 segundos
+    const timeout = setTimeout(() => {
+      if (isMounted) {
+        console.warn('⚠️ TIMEOUT: O Supabase demorou demasiado tempo a responder. A forçar saída do loading...');
+        setLoading(false);
       }
-      setLoading(false);
+    }, 3000);
+
+    // Get initial session
+    console.log('1. A pedir a sessão inicial ao Supabase...');
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      console.log('2. Resposta da sessão recebida:', session ? 'Sessão existe' : 'Sem sessão', error || '');
+      try {
+        if (error) throw error;
+        if (session?.user) {
+          console.log('3. A tentar ler a tabela profiles na Base de Dados...');
+          const profile = await fetchProfile(session.user.id, session.user.email ?? '');
+          console.log('4. Leitura da tabela profiles concluída!', profile);
+          if (isMounted) setUser(profile);
+        }
+      } catch (err) {
+        console.error('🔴 Erro na sessão inicial:', err);
+      } finally {
+        if (isMounted) {
+          clearTimeout(timeout);
+          setLoading(false);
+        }
+      }
     });
 
     // Subscribe to auth state changes (login / logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        const profile = await fetchProfile(session.user.id, session.user.email ?? '');
-        setUser(profile);
-      } else {
-        setUser(null);
+      console.log('🔔 Evento AuthStateChange:', _event);
+      try {
+        if (session?.user) {
+          const profile = await fetchProfile(session.user.id, session.user.email ?? '');
+          if (isMounted) setUser(profile);
+        } else {
+          if (isMounted) setUser(null);
+        }
+      } catch (err) {
+        console.error('🔴 Erro no Auth State Change:', err);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, [fetchProfile]);
 
   const signIn = useCallback(async (email: string, password: string): Promise<string | null> => {
