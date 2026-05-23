@@ -86,7 +86,7 @@ export default function WarehouseDetail() {
           <h2 className="text-xl font-bold mt-2">{warehouse.name}</h2>
           <p className="text-sm text-text-muted mt-1">{totalItems} unidades · {inventory.length} produtos</p>
         </div>
-        <Button variant="secondary" icon={<QrCode size={16} />}>
+        <Button variant="secondary" icon={<QrCode size={16} />} onClick={() => navigate(`/armazens/${warehouse.id}/qr`)}>
           Gerar QR Code
         </Button>
       </div>

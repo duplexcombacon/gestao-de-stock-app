@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { RotateCcw, Check, X, Plus } from 'lucide-react';
+import { Check, X, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -16,6 +17,7 @@ const statusConfig: Record<string, { label: string; variant: 'warning' | 'succes
 
 export default function Returns() {
   const { returns, loading, resolveReturn } = useReturns();
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selected, setSelected] = useState<ReturnItem | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -77,7 +79,7 @@ export default function Returns() {
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
         />
-        <Button icon={<Plus size={16} />} size="sm">Nova Devolução</Button>
+        <Button icon={<Plus size={16} />} size="sm" onClick={() => navigate('/devolucoes/nova')}>Nova Devolução</Button>
       </div>
 
       <Table

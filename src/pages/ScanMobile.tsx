@@ -72,7 +72,7 @@ function CameraScanner({ mode, onDecode, onClose }: CameraScannerProps) {
   // Guard against firing onDecode multiple times for the same frame burst
   const [fired, setFired] = useState(false);
 
-  const { ref, error } = useZxing({
+  const { ref } = useZxing({
     constraints: { video: { facingMode: 'environment' } },
     timeBetweenDecodingAttempts: 300,
     onDecodeResult(result) {
@@ -107,16 +107,7 @@ function CameraScanner({ mode, onDecode, onClose }: CameraScannerProps) {
 
       {/* Camera feed or error */}
       <div className="flex-1 relative overflow-hidden">
-        {error ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8 text-center">
-            <AlertCircle size={48} className="text-red-400" />
-            <p className="text-white text-base font-semibold">Câmara não disponível</p>
-            <p className="text-white/60 text-sm">{error.message}</p>
-            <p className="text-white/40 text-xs mt-1">Use o input manual abaixo para testes</p>
-            <Button variant="secondary" onClick={onClose} className="mt-2">Fechar</Button>
-          </div>
-        ) : (
-          <>
+        <>
             <video
               ref={ref}
               className="absolute inset-0 w-full h-full object-cover"
@@ -147,7 +138,6 @@ function CameraScanner({ mode, onDecode, onClose }: CameraScannerProps) {
               }}
             />
           </>
-        )}
       </div>
 
       {/* Footer hint */}

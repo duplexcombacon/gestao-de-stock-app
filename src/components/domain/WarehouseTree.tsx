@@ -57,7 +57,7 @@ function WarehouseNode({ warehouse, depth = 0 }: WarehouseNodeProps) {
         {/* Actions */}
         <div className="hidden group-hover:flex items-center gap-1">
           <button
-            onClick={(e) => { e.stopPropagation(); }}
+            onClick={(e) => { e.stopPropagation(); navigate(`/armazens/${warehouse.id}/qr`); }}
             className="p-1 rounded text-text-muted hover:text-accent transition-colors cursor-pointer"
             title="Gerar QR Code"
           >
@@ -65,7 +65,7 @@ function WarehouseNode({ warehouse, depth = 0 }: WarehouseNodeProps) {
           </button>
           {warehouse.type !== 'shelf' && (
             <button
-              onClick={(e) => { e.stopPropagation(); }}
+              onClick={(e) => { e.stopPropagation(); navigate(`/armazens/novo?parent=${warehouse.id}`); }}
               className="p-1 rounded text-text-muted hover:text-accent transition-colors cursor-pointer"
               title="Adicionar sub-armazém"
             >
