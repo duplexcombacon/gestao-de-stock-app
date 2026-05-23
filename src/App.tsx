@@ -1,3 +1,8 @@
+import { Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from '@/hooks/useAuth';
+import type { UserRole } from '@/types';
+
+// ... (existing imports stay as they were, we will re-import them below)
 import { BrowserRouter, Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -35,7 +40,6 @@ function AppLayout() {
   const location = useLocation();
   const path = location.pathname;
 
-  // Resolve title: check exact match, then check patterns
   let title = pageTitles[path] || '';
   if (!title) {
     if (path.startsWith('/produtos/')) title = 'Detalhe do Produto';
@@ -57,25 +61,69 @@ function AppLayout() {
   );
 }
 
+function ProtectedRoute() {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface">
+        <div className="size-8 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return <AppLayout />;
+}
+
+function RoleGuard({ roles, children }: { roles: UserRole[]; children: React.ReactNode }) {
+  const { hasRole, loading } = useAuth();
+  
+  if (loading) return null;
+  
+  if (!hasRole(...roles)) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/produtos" element={<ProductsList />} />
-            <Route path="/produtos/novo" element={<ProductCreate />} />
-            <Route path="/produtos/:id" element={<ProductDetail />} />
-            <Route path="/scan" element={<ScanMobile />} />
-            <Route path="/armazens" element={<WarehousesList />} />
-            <Route path="/armazens/:id" element={<WarehouseDetail />} />
-            <Route path="/movimentos" element={<MovementLog />} />
-            <Route path="/devolucoes" element={<Returns />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            
+            {/* Rotas Protegidas */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/produtos" element={<ProductsList />} />
+              
+              {/* Apenas admin e gestor podem criar produtos */}
+              <Route 
+                path="/produtos/novo" 
+                element={
+                  <RoleGuard roles={['admin', 'gestor']}>
+                    <ProductCreate />
+                  </RoleGuard>
+                } 
+              />
+              
+              <Route path="/produtos/:id" element={<ProductDetail />} />
+              <Route path="/scan" element={<ScanMobile />} />
+              <Route path="/armazens" element={<WarehousesList />} />
+              <Route path="/armazens/:id" element={<WarehouseDetail />} />
+              <Route path="/movimentos" element={<MovementLog />} />
+              <Route path="/devolucoes" element={<Returns />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

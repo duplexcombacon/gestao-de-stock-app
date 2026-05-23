@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Package, LogIn } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,11 +21,15 @@ export default function Login() {
     }
     setLoading(true);
 
-    // TODO: replace with supabase.auth.signInWithPassword({ email, password })
-    setTimeout(() => {
+    const errorMsg = await signIn(email, password);
+    if (errorMsg) {
+      setError(errorMsg);
       setLoading(false);
-      navigate('/');
-    }, 800);
+      return;
+    }
+    
+    // Sucesso! A navegação vai depender da role ou apenas mandar para '/'.
+    navigate('/');
   };
 
   return (
