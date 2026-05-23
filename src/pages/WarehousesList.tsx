@@ -10,7 +10,7 @@ export default function WarehousesList() {
         <p className="text-sm text-text-secondary">
           {mockWarehouses.length} armazén{mockWarehouses.length !== 1 ? 's' : ''} registado{mockWarehouses.length !== 1 ? 's' : ''}
         </p>
-        <Button icon={<Plus size={16} />} size="sm">Novo Armazém</Button>
+        <Button icon={<Plus size={16} />} size="sm" onClick={() => window.location.assign('/armazens/novo')}>Nova Localização</Button>
       </div>
 
       <div className="bg-surface-raised border border-border rounded-xl p-4">

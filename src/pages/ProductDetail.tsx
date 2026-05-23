@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Warehouse, Clock, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Warehouse, AlertTriangle, Pencil, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { Table, type Column } from '@/components/ui/Table';
 import {
   getProductById, getInventoryForProduct, getBatchesForProduct,
@@ -83,9 +84,15 @@ export default function ProductDetail() {
               <span>{formatCurrency(product.cost_price)} / {product.unit}</span>
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-3xl font-bold font-mono">{totalStock}</p>
-            <p className="text-sm text-text-muted">unidades em stock</p>
+          <div className="text-right space-y-3">
+            <div>
+              <p className="text-3xl font-bold font-mono">{totalStock}</p>
+              <p className="text-sm text-text-muted">unidades em stock</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" size="sm" icon={<Pencil size={14} />} onClick={() => navigate(`/produtos/${product.id}/editar`)}>Editar</Button>
+              <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={() => navigate(`/produtos/${product.id}/lotes/novo`)}>Lote</Button>
+            </div>
             {isLow && (
               <Badge variant="danger" dot className="mt-2">
                 <AlertTriangle size={12} /> Abaixo do mínimo ({product.min_stock})

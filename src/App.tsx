@@ -13,11 +13,16 @@ import Dashboard from '@/pages/Dashboard';
 import ProductsList from '@/pages/ProductsList';
 import ProductCreate from '@/pages/ProductCreate';
 import ProductDetail from '@/pages/ProductDetail';
+import ProductEdit from '@/pages/ProductEdit';
+import ProductBatchCreate from '@/pages/ProductBatchCreate';
 import ScanMobile from '@/pages/ScanMobile';
 import WarehousesList from '@/pages/WarehousesList';
 import WarehouseDetail from '@/pages/WarehouseDetail';
+import WarehouseCreate from '@/pages/WarehouseCreate';
+import WarehouseQrPrint from '@/pages/WarehouseQrPrint';
 import MovementLog from '@/pages/MovementLog';
 import Returns from '@/pages/Returns';
+import ReturnCreate from '@/pages/ReturnCreate';
 import AdminUsers from '@/pages/AdminUsers';
 
 const queryClient = new QueryClient({
@@ -32,8 +37,10 @@ const pageTitles: Record<string, string> = {
   '/produtos/novo': 'Novo Produto',
   '/scan': 'Scanner',
   '/armazens': 'Armazéns',
+  '/armazens/novo': 'Nova Localização',
   '/movimentos': 'Movimentos',
   '/devolucoes': 'Devoluções',
+  '/devolucoes/nova': 'Nova Devolução',
   '/admin/utilizadores': 'Gestão de Utilizadores',
 };
 
@@ -43,7 +50,10 @@ function AppLayout() {
 
   let title = pageTitles[path] || '';
   if (!title) {
-    if (path.startsWith('/produtos/')) title = 'Detalhe do Produto';
+    if (path.endsWith('/editar')) title = 'Editar Produto';
+    else if (path.endsWith('/lotes/novo')) title = 'Novo Lote';
+    else if (path.startsWith('/produtos/')) title = 'Detalhe do Produto';
+    else if (path.endsWith('/qr')) title = 'QR Code';
     else if (path.startsWith('/armazens/')) title = 'Detalhe do Armazém';
     else title = 'StockFlow';
   }
@@ -116,11 +126,16 @@ export default function App() {
               />
               
               <Route path="/produtos/:id" element={<ProductDetail />} />
+              <Route path="/produtos/:id/editar" element={<RoleGuard roles={['admin', 'gestor']}><ProductEdit /></RoleGuard>} />
+              <Route path="/produtos/:id/lotes/novo" element={<RoleGuard roles={['admin', 'gestor']}><ProductBatchCreate /></RoleGuard>} />
               <Route path="/scan" element={<ScanMobile />} />
               <Route path="/armazens" element={<WarehousesList />} />
+              <Route path="/armazens/novo" element={<RoleGuard roles={['admin', 'gestor']}><WarehouseCreate /></RoleGuard>} />
               <Route path="/armazens/:id" element={<WarehouseDetail />} />
+              <Route path="/armazens/:id/qr" element={<WarehouseQrPrint />} />
               <Route path="/movimentos" element={<MovementLog />} />
               <Route path="/devolucoes" element={<Returns />} />
+              <Route path="/devolucoes/nova" element={<RoleGuard roles={['admin', 'gestor', 'caixa']}><ReturnCreate /></RoleGuard>} />
               
               {/* Apenas admin pode gerir utilizadores */}
               <Route 
