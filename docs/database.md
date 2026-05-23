@@ -1,0 +1,689 @@
+# Base de Dados — SQL Completo para Supabase
+
+> Copiar todo o conteúdo do bloco SQL abaixo e colar no **Supabase SQL Editor** (Dashboard > SQL Editor > New Query).
+> Executar de uma só vez. A ordem já respeita as dependências entre tabelas.
+
+---
+
+## Instruções
+
+1. Abrir o projeto no [Supabase Dashboard](https://supabase.com/dashboard)
+2. Ir a **SQL Editor** > **New Query**
+3. Colar todo o SQL abaixo
+4. Clicar **Run**
+5. Verificar que todas as tabelas aparecem em **Table Editor**
+
+---
+
+## SQL Completo
+
+```sql
+-- ============================================================
+-- GESTÃO DE STOCK — SCHEMA COMPLETO
+-- Supabase (PostgreSQL)
+-- ============================================================
+
+-- Ativar extensões necessárias
+create extension if not exists "pgcrypto";
+
+-- ============================================================
+-- 1. PROFILES (extensão do auth.users do Supabase)
+-- ============================================================
+create table public.profiles (
+  id uuid references auth.users on delete cascade primary key,
+  name text not null,
+  email text,
+  role text not null check (role in ('admin', 'gestor', 'caixa', 'auditor')),
+  active boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+comment on table public.profiles is 'Perfil de utilizador com papel (RBAC)';
+
+-- Trigger para criar perfil automaticamente quando um user se regista
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, name, email, role)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'name', 'Novo Utilizador'),
+    new.email,
+    coalesce(new.raw_user_meta_data->>'role', 'caixa')
+  );
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- ============================================================
+-- 2. PRODUCTS (Catálogo de Produtos)
+-- ============================================================
+create table public.products (
+  id uuid default gen_random_uuid() primary key,
+  sku text unique not null,
+  name text not null,
+  description text,
+  category text,
+  unit text default 'un' check (unit in ('un', 'kg', 'l', 'cx', 'pack')),
+  cost_price numeric(10, 2) default 0,
+  sell_price numeric(10, 2) default 0,
+  min_stock integer default 0,
+  barcode text unique,
+  image_url text,
+  active boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+comment on table public.products is 'Catálogo global de produtos';
+
+-- Índices para pesquisa rápida
+create index idx_products_sku on public.products(sku);
+create index idx_products_barcode on public.products(barcode);
+create index idx_products_name on public.products using gin(to_tsvector('portuguese', name));
+create index idx_products_category on public.products(category);
+
+-- ============================================================
+-- 3. WAREHOUSES (Hierarquia de Armazéns)
+-- ============================================================
+create table public.warehouses (
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  parent_id uuid references public.warehouses(id) on delete cascade,
+  type text default 'storage' check (type in ('storage', 'shelf', 'corridor', 'zone', 'store')),
+  qr_code text unique,
+  description text,
+  active boolean default true,
+  created_at timestamptz default now()
+);
+
+comment on table public.warehouses is 'Hierarquia de localizações físicas (armazém > corredor > prateleira)';
+
+create index idx_warehouses_parent on public.warehouses(parent_id);
+
+-- ============================================================
+-- 4. INVENTORY (Stock atual por produto/localização)
+-- ============================================================
+create table public.inventory (
+  id uuid default gen_random_uuid() primary key,
+  product_id uuid references public.products(id) on delete cascade not null,
+  warehouse_id uuid references public.warehouses(id) on delete cascade not null,
+  quantity integer default 0 check (quantity >= 0),
+  updated_at timestamptz default now(),
+  unique(product_id, warehouse_id)
+);
+
+comment on table public.inventory is 'Saldo atual de stock por produto e localização';
+
+create index idx_inventory_product on public.inventory(product_id);
+create index idx_inventory_warehouse on public.inventory(warehouse_id);
+
+-- ============================================================
+-- 5. BATCHES (Lotes e Validades — FEFO)
+-- ============================================================
+create table public.batches (
+  id uuid default gen_random_uuid() primary key,
+  product_id uuid references public.products(id) on delete cascade not null,
+  warehouse_id uuid references public.warehouses(id) on delete set null,
+  batch_code text not null,
+  expiry_date date not null,
+  quantity integer default 0 check (quantity >= 0),
+  notes text,
+  created_at timestamptz default now()
+);
+
+comment on table public.batches is 'Lotes de produtos com rastreio de validade (FEFO)';
+
+create index idx_batches_product on public.batches(product_id);
+create index idx_batches_expiry on public.batches(expiry_date);
+
+-- ============================================================
+-- 6. MOVEMENTS (Registo de movimentos de stock)
+-- ============================================================
+create table public.movements (
+  id uuid default gen_random_uuid() primary key,
+  product_id uuid references public.products(id) on delete cascade not null,
+  warehouse_id uuid references public.warehouses(id) on delete cascade not null,
+  destination_warehouse_id uuid references public.warehouses(id) on delete set null,
+  batch_id uuid references public.batches(id) on delete set null,
+  type text not null check (type in ('in', 'out', 'transfer', 'adjustment')),
+  quantity integer not null check (quantity > 0),
+  user_id uuid references public.profiles(id) not null,
+  notes text,
+  created_at timestamptz default now()
+);
+
+comment on table public.movements is 'Histórico de todos os movimentos de stock';
+
+create index idx_movements_product on public.movements(product_id);
+create index idx_movements_warehouse on public.movements(warehouse_id);
+create index idx_movements_user on public.movements(user_id);
+create index idx_movements_type on public.movements(type);
+create index idx_movements_created on public.movements(created_at desc);
+
+-- ============================================================
+-- 7. RETURNS (Devoluções)
+-- ============================================================
+create table public.returns (
+  id uuid default gen_random_uuid() primary key,
+  product_id uuid references public.products(id) on delete cascade not null,
+  warehouse_id uuid references public.warehouses(id) on delete set null,
+  quantity integer default 1 check (quantity > 0),
+  reason text,
+  status text default 'pending' check (status in ('pending', 'restocked', 'scrapped')),
+  user_id uuid references public.profiles(id) not null,
+  resolved_by uuid references public.profiles(id),
+  created_at timestamptz default now(),
+  resolved_at timestamptz
+);
+
+comment on table public.returns is 'Registo de devoluções e sua resolução';
+
+create index idx_returns_status on public.returns(status);
+create index idx_returns_product on public.returns(product_id);
+
+-- ============================================================
+-- 8. AUDIT_LOGS (Log de Auditoria Imutável)
+-- ============================================================
+create table public.audit_logs (
+  id uuid default gen_random_uuid() primary key,
+  entity text not null,
+  entity_id uuid not null,
+  action text not null,
+  user_id uuid references public.profiles(id),
+  old_data jsonb,
+  new_data jsonb,
+  diff jsonb,
+  ip_address text,
+  created_at timestamptz default now()
+);
+
+comment on table public.audit_logs is 'Registo imutável de todas as ações no sistema (append-only)';
+
+create index idx_audit_entity on public.audit_logs(entity, entity_id);
+create index idx_audit_user on public.audit_logs(user_id);
+create index idx_audit_created on public.audit_logs(created_at desc);
+
+-- ============================================================
+-- 9. VIEWS (Para Dashboard e Alertas)
+-- ============================================================
+
+-- Vista de alertas: produtos abaixo do stock mínimo
+create or replace view public.low_stock_alerts as
+select
+  p.id as product_id,
+  p.name as product_name,
+  p.sku,
+  p.min_stock,
+  coalesce(sum(i.quantity), 0) as total_stock,
+  p.min_stock - coalesce(sum(i.quantity), 0) as deficit
+from public.products p
+left join public.inventory i on i.product_id = p.id
+where p.active = true
+group by p.id, p.name, p.sku, p.min_stock
+having coalesce(sum(i.quantity), 0) < p.min_stock;
+
+-- Vista de lotes a expirar nos próximos 30 dias
+create or replace view public.expiring_batches as
+select
+  b.id as batch_id,
+  b.batch_code,
+  b.expiry_date,
+  b.quantity,
+  p.id as product_id,
+  p.name as product_name,
+  p.sku,
+  w.id as warehouse_id,
+  w.name as warehouse_name,
+  b.expiry_date - current_date as days_until_expiry
+from public.batches b
+join public.products p on p.id = b.product_id
+left join public.warehouses w on w.id = b.warehouse_id
+where b.expiry_date <= current_date + interval '30 days'
+  and b.quantity > 0
+order by b.expiry_date asc;
+
+-- Vista combinada de alertas (para o Dashboard)
+create or replace view public.alerts_view as
+select
+  'low_stock' as alert_type,
+  product_id as entity_id,
+  product_name as title,
+  'Stock atual: ' || total_stock || ' / Mínimo: ' || min_stock as description,
+  null::date as expiry_date,
+  deficit as severity
+from public.low_stock_alerts
+union all
+select
+  'expiring_batch' as alert_type,
+  product_id as entity_id,
+  product_name || ' — Lote ' || batch_code as title,
+  'Expira em ' || days_until_expiry || ' dias (' || warehouse_name || ')' as description,
+  expiry_date,
+  case
+    when days_until_expiry <= 0 then 100
+    when days_until_expiry <= 7 then 75
+    when days_until_expiry <= 14 then 50
+    else 25
+  end as severity
+from public.expiring_batches
+order by severity desc;
+
+-- ============================================================
+-- 10. STORED PROCEDURES (RPC)
+-- ============================================================
+
+-- Criar movimento de stock (transação atómica)
+create or replace function public.create_movement(
+  p_product_id uuid,
+  p_warehouse_id uuid,
+  p_type text,
+  p_quantity integer,
+  p_user_id uuid,
+  p_destination_warehouse_id uuid default null,
+  p_batch_id uuid default null,
+  p_notes text default null
+)
+returns uuid
+language plpgsql
+security definer
+as $$
+declare
+  v_movement_id uuid;
+  v_current_stock integer;
+  v_new_stock integer;
+begin
+  -- Validar tipo
+  if p_type not in ('in', 'out', 'transfer', 'adjustment') then
+    raise exception 'Tipo de movimento inválido: %', p_type;
+  end if;
+
+  -- Validar quantidade
+  if p_quantity <= 0 then
+    raise exception 'A quantidade deve ser superior a 0';
+  end if;
+
+  -- Para transferências, destino é obrigatório
+  if p_type = 'transfer' and p_destination_warehouse_id is null then
+    raise exception 'Transferências requerem um armazém de destino';
+  end if;
+
+  -- Obter stock atual (com lock para evitar race conditions)
+  select quantity into v_current_stock
+  from public.inventory
+  where product_id = p_product_id and warehouse_id = p_warehouse_id
+  for update;
+
+  -- Se não existe registo de inventário, criar com 0
+  if v_current_stock is null then
+    if p_type in ('out', 'transfer') then
+      raise exception 'Stock insuficiente: produto não existe nesta localização';
+    end if;
+    insert into public.inventory (product_id, warehouse_id, quantity)
+    values (p_product_id, p_warehouse_id, 0);
+    v_current_stock := 0;
+  end if;
+
+  -- Validar stock para saídas e transferências
+  if p_type in ('out', 'transfer') and v_current_stock < p_quantity then
+    raise exception 'Stock insuficiente: disponível = %, pedido = %', v_current_stock, p_quantity;
+  end if;
+
+  -- Atualizar inventário de origem
+  if p_type = 'in' then
+    v_new_stock := v_current_stock + p_quantity;
+  elsif p_type in ('out', 'transfer') then
+    v_new_stock := v_current_stock - p_quantity;
+  elsif p_type = 'adjustment' then
+    v_new_stock := p_quantity; -- adjustment define o valor absoluto
+  end if;
+
+  update public.inventory
+  set quantity = v_new_stock, updated_at = now()
+  where product_id = p_product_id and warehouse_id = p_warehouse_id;
+
+  -- Para transferências: incrementar stock no destino
+  if p_type = 'transfer' then
+    insert into public.inventory (product_id, warehouse_id, quantity)
+    values (p_product_id, p_destination_warehouse_id, p_quantity)
+    on conflict (product_id, warehouse_id)
+    do update set quantity = inventory.quantity + p_quantity, updated_at = now();
+  end if;
+
+  -- Inserir movimento
+  insert into public.movements (
+    product_id, warehouse_id, destination_warehouse_id,
+    batch_id, type, quantity, user_id, notes
+  )
+  values (
+    p_product_id, p_warehouse_id, p_destination_warehouse_id,
+    p_batch_id, p_type, p_quantity, p_user_id, p_notes
+  )
+  returning id into v_movement_id;
+
+  -- Inserir no audit log
+  insert into public.audit_logs (entity, entity_id, action, user_id, new_data)
+  values (
+    'movement',
+    v_movement_id,
+    p_type,
+    p_user_id,
+    jsonb_build_object(
+      'product_id', p_product_id,
+      'warehouse_id', p_warehouse_id,
+      'destination_warehouse_id', p_destination_warehouse_id,
+      'quantity', p_quantity,
+      'old_stock', v_current_stock,
+      'new_stock', v_new_stock,
+      'type', p_type,
+      'notes', p_notes
+    )
+  );
+
+  return v_movement_id;
+end;
+$$;
+
+-- Resolver devolução
+create or replace function public.resolve_return(
+  p_return_id uuid,
+  p_action text,
+  p_user_id uuid
+)
+returns void
+language plpgsql
+security definer
+as $$
+declare
+  v_return record;
+begin
+  -- Validar ação
+  if p_action not in ('restock', 'scrap') then
+    raise exception 'Ação inválida: %. Use restock ou scrap.', p_action;
+  end if;
+
+  -- Obter devolução
+  select * into v_return
+  from public.returns
+  where id = p_return_id and status = 'pending'
+  for update;
+
+  if not found then
+    raise exception 'Devolução não encontrada ou já resolvida';
+  end if;
+
+  -- Se reintegrar: criar movimento de entrada
+  if p_action = 'restock' then
+    perform public.create_movement(
+      v_return.product_id,
+      coalesce(v_return.warehouse_id, (select id from public.warehouses limit 1)),
+      'in',
+      v_return.quantity,
+      p_user_id,
+      null, null,
+      'Reintegração de devolução #' || p_return_id
+    );
+  end if;
+
+  -- Atualizar estado da devolução
+  update public.returns
+  set
+    status = case when p_action = 'restock' then 'restocked' else 'scrapped' end,
+    resolved_by = p_user_id,
+    resolved_at = now()
+  where id = p_return_id;
+
+  -- Audit log
+  insert into public.audit_logs (entity, entity_id, action, user_id, new_data)
+  values (
+    'return',
+    p_return_id,
+    'resolve_' || p_action,
+    p_user_id,
+    jsonb_build_object(
+      'product_id', v_return.product_id,
+      'quantity', v_return.quantity,
+      'action', p_action
+    )
+  );
+end;
+$$;
+
+-- Dashboard KPIs
+create or replace function public.get_dashboard_kpis()
+returns jsonb
+language plpgsql
+security definer
+as $$
+declare
+  v_total_products integer;
+  v_total_capital numeric;
+  v_movements_today integer;
+  v_active_alerts integer;
+begin
+  select count(*) into v_total_products
+  from public.products where active = true;
+
+  select coalesce(sum(i.quantity * p.cost_price), 0) into v_total_capital
+  from public.inventory i
+  join public.products p on p.id = i.product_id;
+
+  select count(*) into v_movements_today
+  from public.movements
+  where created_at >= current_date;
+
+  select count(*) into v_active_alerts
+  from public.alerts_view;
+
+  return jsonb_build_object(
+    'total_products', v_total_products,
+    'total_capital', v_total_capital,
+    'movements_today', v_movements_today,
+    'active_alerts', v_active_alerts
+  );
+end;
+$$;
+
+-- ============================================================
+-- 11. ROW LEVEL SECURITY (RLS)
+-- ============================================================
+
+-- Ativar RLS em todas as tabelas
+alter table public.profiles enable row level security;
+alter table public.products enable row level security;
+alter table public.warehouses enable row level security;
+alter table public.inventory enable row level security;
+alter table public.batches enable row level security;
+alter table public.movements enable row level security;
+alter table public.returns enable row level security;
+alter table public.audit_logs enable row level security;
+
+-- Helper: obter papel do utilizador atual
+create or replace function public.get_user_role()
+returns text
+language sql
+security definer
+stable
+as $$
+  select role from public.profiles where id = auth.uid();
+$$;
+
+-- PROFILES: cada user vê o seu; admin vê todos
+create policy "Users can view own profile"
+  on public.profiles for select
+  using (id = auth.uid() or public.get_user_role() = 'admin');
+
+create policy "Users can update own profile"
+  on public.profiles for update
+  using (id = auth.uid());
+
+create policy "Admin can manage all profiles"
+  on public.profiles for all
+  using (public.get_user_role() = 'admin');
+
+-- PRODUCTS: todos autenticados podem ler; admin e gestor podem editar
+create policy "Authenticated users can view products"
+  on public.products for select
+  using (auth.uid() is not null);
+
+create policy "Admin and gestor can manage products"
+  on public.products for all
+  using (public.get_user_role() in ('admin', 'gestor'));
+
+-- WAREHOUSES: todos autenticados podem ler; admin e gestor podem editar
+create policy "Authenticated users can view warehouses"
+  on public.warehouses for select
+  using (auth.uid() is not null);
+
+create policy "Admin and gestor can manage warehouses"
+  on public.warehouses for all
+  using (public.get_user_role() in ('admin', 'gestor'));
+
+-- INVENTORY: todos autenticados podem ler (stock é público internamente)
+create policy "Authenticated users can view inventory"
+  on public.inventory for select
+  using (auth.uid() is not null);
+
+create policy "System can manage inventory"
+  on public.inventory for all
+  using (public.get_user_role() in ('admin', 'gestor'));
+
+-- BATCHES: todos podem ler; admin e gestor podem gerir
+create policy "Authenticated users can view batches"
+  on public.batches for select
+  using (auth.uid() is not null);
+
+create policy "Admin and gestor can manage batches"
+  on public.batches for all
+  using (public.get_user_role() in ('admin', 'gestor'));
+
+-- MOVEMENTS: todos podem ler; admin, gestor e caixa podem inserir
+create policy "Authenticated users can view movements"
+  on public.movements for select
+  using (auth.uid() is not null);
+
+create policy "Operational roles can create movements"
+  on public.movements for insert
+  with check (public.get_user_role() in ('admin', 'gestor', 'caixa'));
+
+-- RETURNS: todos podem ler; caixa pode criar; gestor e admin podem resolver
+create policy "Authenticated users can view returns"
+  on public.returns for select
+  using (auth.uid() is not null);
+
+create policy "Caixa can create returns"
+  on public.returns for insert
+  with check (public.get_user_role() in ('admin', 'gestor', 'caixa'));
+
+create policy "Gestor can resolve returns"
+  on public.returns for update
+  using (public.get_user_role() in ('admin', 'gestor'));
+
+-- AUDIT_LOGS: todos podem ler (para auditores); ninguém pode editar/apagar
+create policy "Authenticated users can view audit logs"
+  on public.audit_logs for select
+  using (auth.uid() is not null);
+
+create policy "System can insert audit logs"
+  on public.audit_logs for insert
+  with check (auth.uid() is not null);
+
+-- ============================================================
+-- 12. TRIGGERS DE UPDATED_AT
+-- ============================================================
+create or replace function public.update_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger set_updated_at before update on public.profiles
+  for each row execute function public.update_updated_at();
+
+create trigger set_updated_at before update on public.products
+  for each row execute function public.update_updated_at();
+
+create trigger set_updated_at before update on public.inventory
+  for each row execute function public.update_updated_at();
+
+-- ============================================================
+-- 13. ATIVAR REALTIME NAS TABELAS CRÍTICAS
+-- ============================================================
+-- No Supabase Dashboard > Database > Replication:
+-- Ativar Realtime para as tabelas: inventory, movements, returns
+-- Ou via SQL:
+alter publication supabase_realtime add table public.inventory;
+alter publication supabase_realtime add table public.movements;
+alter publication supabase_realtime add table public.returns;
+```
+
+---
+
+## Resumo das Tabelas
+
+| Tabela | Descrição | Registos esperados |
+|--------|-----------|-------------------|
+| `profiles` | Utilizadores e papéis (RBAC) | Dezenas |
+| `products` | Catálogo de produtos | Centenas a milhares |
+| `warehouses` | Localizações físicas (árvore) | Dezenas |
+| `inventory` | Stock atual por produto/local | Milhares |
+| `batches` | Lotes com validade | Centenas |
+| `movements` | Histórico de transações | Milhares a milhões |
+| `returns` | Devoluções pendentes/resolvidas | Centenas |
+| `audit_logs` | Log imutável de auditoria | Milhões |
+
+## Views
+
+| View | Utilização |
+|------|-----------|
+| `low_stock_alerts` | Produtos abaixo do stock mínimo |
+| `expiring_batches` | Lotes a expirar nos próximos 30 dias |
+| `alerts_view` | Combinação de todos os alertas (para Dashboard) |
+
+## Stored Procedures (RPC)
+
+| Função | Utilização |
+|--------|-----------|
+| `create_movement()` | Transação atómica de entrada/saída/transferência |
+| `resolve_return()` | Resolver devolução (reintegrar ou abater) |
+| `get_dashboard_kpis()` | Agregar KPIs para o dashboard |
+
+## BUCKETS
+ ```sql
+
+-- 1. Permitir leitura pública para que as imagens apareçam na app
+create policy "Leitura publica de imagens"
+  on storage.objects for select
+  using ( bucket_id = 'product-images' );
+
+-- 2. Permitir que apenas Admin e Gestor façam upload (Insert)
+create policy "Admin e Gestor podem fazer upload"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'product-images' and
+    public.get_user_role() in ('admin', 'gestor')
+  );
+
+-- 3. Permitir que apenas Admin e Gestor apaguem/substituam imagens (Update/Delete)
+create policy "Admin e Gestor podem alterar/apagar imagens"
+  on storage.objects for update
+  using (
+    bucket_id = 'product-images' and
+    public.get_user_role() in ('admin', 'gestor')
+  );
+
+create policy "Admin e Gestor podem apagar imagens"
+  on storage.objects for delete
+  using (
+    bucket_id = 'product-images' and
+    public.get_user_role() in ('admin', 'gestor')
+  );
+
+  ```sql
