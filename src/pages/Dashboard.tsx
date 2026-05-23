@@ -3,36 +3,53 @@ import { Package, Euro, ArrowLeftRight, AlertTriangle, TrendingDown, Clock } fro
 import { useNavigate } from 'react-router-dom';
 import { KpiCard } from '@/components/domain/KpiCard';
 import { Badge } from '@/components/ui/Badge';
-import { mockKPIs, mockAlerts, mockMovements, mockProducts, getProductById } from '@/data/mock';
 import { formatCurrency, formatRelativeDate, daysUntil } from '@/utils/formatters';
-
-// Chart data: exits per day (last 7 days)
-const chartData = (() => {
-  const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    return {
-      day: days[d.getDay()],
-      saidas: Math.floor(Math.random() * 30) + 5,
-    };
-  });
-})();
-
-// Top 5 products by exits
-const topProducts = (() => {
-  const counts: Record<string, number> = {};
-  mockMovements.filter(m => m.type === 'out').forEach(m => {
-    counts[m.product_id] = (counts[m.product_id] || 0) + m.quantity;
-  });
-  return Object.entries(counts)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
-    .map(([id, qty]) => ({ product: getProductById(id)!, quantity: qty }));
-})();
+import { useDashboard } from '@/hooks/useDashboard';
+import { useMovements } from '@/hooks/useMovements';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { kpis, alerts, loading } = useDashboard();
+  const { movements } = useMovements();
+
+  const chartData = (() => {
+    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      
+      // Calculate exits for this specific day
+      const startOfDay = new Date(d.setHours(0, 0, 0, 0)).getTime();
+      const endOfDay = new Date(d.setHours(23, 59, 59, 999)).getTime();
+      
+      const exits = movements.filter((m: any) => {
+        const time = new Date(m.created_at).getTime();
+        return m.type === 'out' && time >= startOfDay && time <= endOfDay;
+      }).reduce((sum: number, m: any) => sum + m.quantity, 0);
+
+      return {
+        day: days[d.getDay()],
+        saidas: exits,
+      };
+    });
+  })();
+
+  const topProducts = (() => {
+    const counts: Record<string, { product: any, quantity: number }> = {};
+    movements.filter((m: any) => m.type === 'out').forEach((m: any) => {
+      if (!counts[m.product_id]) {
+        counts[m.product_id] = { product: m.product, quantity: 0 };
+      }
+      counts[m.product_id].quantity += m.quantity;
+    });
+    return Object.values(counts)
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 5);
+  })();
+
+  if (loading || !kpis) {
+    return <div className="flex justify-center py-20 text-text-muted">A carregar dashboard...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -40,29 +57,27 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard
           title="Total Produtos"
-          value={mockKPIs.total_products}
+          value={kpis.total_products}
           icon={<Package size={18} />}
           variant="accent"
-          trend={{ value: 12, label: 'vs mês anterior' }}
         />
         <KpiCard
           title="Capital em Stock"
-          value={formatCurrency(mockKPIs.total_capital)}
+          value={formatCurrency(kpis.total_capital)}
           icon={<Euro size={18} />}
           variant="success"
-          trend={{ value: 5.3, label: 'vs mês anterior' }}
         />
         <KpiCard
           title="Movimentos Hoje"
-          value={mockKPIs.movements_today}
+          value={kpis.movements_today}
           icon={<ArrowLeftRight size={18} />}
           variant="default"
         />
         <KpiCard
           title="Alertas Ativos"
-          value={mockKPIs.active_alerts}
+          value={kpis.active_alerts}
           icon={<AlertTriangle size={18} />}
-          variant={mockKPIs.active_alerts > 0 ? 'danger' : 'default'}
+          variant={kpis.active_alerts > 0 ? 'danger' : 'default'}
         />
       </div>
 
@@ -97,8 +112,8 @@ export default function Dashboard() {
               >
                 <span className="text-xs text-text-muted w-4 text-right">{i + 1}.</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{product.name}</p>
-                  <p className="text-xs text-text-muted">{product.sku}</p>
+                  <p className="text-sm font-medium truncate">{product?.name || '—'}</p>
+                  <p className="text-xs text-text-muted">{product?.sku || '—'}</p>
                 </div>
                 <span className="text-sm font-mono font-semibold text-text-secondary">{quantity}</span>
               </div>
@@ -111,29 +126,30 @@ export default function Dashboard() {
       <div className="bg-surface-raised border border-border rounded-xl p-5">
         <h2 className="text-sm font-semibold text-text-secondary mb-4">Alertas Ativos</h2>
         <div className="space-y-2">
-          {mockAlerts.map(alert => (
-            <div
-              key={alert.id}
-              onClick={() => navigate(`/produtos/${alert.product_id}`)}
-              className="flex items-center gap-3 p-3 rounded-lg bg-surface-overlay/50 hover:bg-surface-overlay transition-colors cursor-pointer"
-            >
-              {alert.type === 'low_stock' ? (
-                <TrendingDown size={16} className="text-danger shrink-0" />
-              ) : (
-                <Clock size={16} className="text-warning shrink-0" />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{alert.product_name}</p>
-                <p className="text-xs text-text-muted">{alert.warehouse_name}</p>
+          {alerts.length === 0 ? (
+            <p className="text-sm text-text-muted py-2">Sem alertas de momento.</p>
+          ) : (
+            alerts.map((alert: any) => (
+              <div
+                key={alert.entity_id || Math.random()}
+                onClick={() => alert.entity_id ? navigate(`/produtos/${alert.entity_id}`) : null}
+                className="flex items-center gap-3 p-3 rounded-lg bg-surface-overlay/50 hover:bg-surface-overlay transition-colors cursor-pointer"
+              >
+                {alert.alert_type === 'low_stock' ? (
+                  <TrendingDown size={16} className="text-danger shrink-0" />
+                ) : (
+                  <Clock size={16} className="text-warning shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{alert.title}</p>
+                  <p className="text-xs text-text-muted">{alert.description}</p>
+                </div>
+                <Badge variant={alert.alert_type === 'low_stock' ? 'danger' : 'warning'} dot>
+                  {alert.alert_type === 'low_stock' ? 'Baixo' : 'Expira'}
+                </Badge>
               </div>
-              <Badge variant={alert.type === 'low_stock' ? 'danger' : 'warning'} dot>
-                {alert.type === 'low_stock'
-                  ? `${alert.value}/${alert.threshold} un`
-                  : `${daysUntil(new Date(Date.now() + alert.value * 86400000).toISOString())} dias`
-                }
-              </Badge>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>

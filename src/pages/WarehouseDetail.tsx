@@ -3,14 +3,18 @@ import { ArrowLeft, QrCode, Package } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Table, type Column } from '@/components/ui/Table';
-import { getWarehouseById, getInventoryForWarehouse, getProductById } from '@/data/mock';
+import { useWarehouseDetail } from '@/hooks/useWarehouses';
 import { formatCurrency } from '@/utils/formatters';
 import type { InventoryItem } from '@/types';
 
 export default function WarehouseDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const warehouse = getWarehouseById(id || '');
+  const { warehouse, inventory, isLoading } = useWarehouseDetail(id);
+
+  if (isLoading) {
+    return <div className="flex justify-center py-20 text-text-muted">A carregar detalhes...</div>;
+  }
 
   if (!warehouse) {
     return (
@@ -21,15 +25,14 @@ export default function WarehouseDetail() {
     );
   }
 
-  const inventory = getInventoryForWarehouse(warehouse.id);
   const totalItems = inventory.reduce((s, i) => s + i.quantity, 0);
 
   const columns: Column<InventoryItem>[] = [
     {
       key: 'product',
       header: 'Produto',
-      render: (inv) => {
-        const p = getProductById(inv.product_id);
+      render: (inv: any) => {
+        const p = inv.products;
         return (
           <div>
             <p className="font-medium">{p?.name || '—'}</p>
@@ -41,8 +44,8 @@ export default function WarehouseDetail() {
     {
       key: 'quantity',
       header: 'Quantidade',
-      render: (inv) => {
-        const p = getProductById(inv.product_id);
+      render: (inv: any) => {
+        const p = inv.products;
         const isLow = p ? inv.quantity < p.min_stock : false;
         return (
           <div className="flex items-center gap-2">
@@ -57,8 +60,8 @@ export default function WarehouseDetail() {
     {
       key: 'value',
       header: 'Valor',
-      render: (inv) => {
-        const p = getProductById(inv.product_id);
+      render: (inv: any) => {
+        const p = inv.products;
         return <span className="font-mono text-text-secondary">{p ? formatCurrency(p.cost_price * inv.quantity) : '—'}</span>;
       },
       className: 'hidden sm:table-cell',
@@ -79,7 +82,7 @@ export default function WarehouseDetail() {
       {/* Header */}
       <div className="bg-surface-raised border border-border rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <Badge variant="accent">{typeLabels[warehouse.type]}</Badge>
+          <Badge variant="accent">{typeLabels[warehouse.type as keyof typeof typeLabels]}</Badge>
           <h2 className="text-xl font-bold mt-2">{warehouse.name}</h2>
           <p className="text-sm text-text-muted mt-1">{totalItems} unidades · {inventory.length} produtos</p>
         </div>

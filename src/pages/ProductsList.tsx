@@ -6,16 +6,18 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Table, type Column } from '@/components/ui/Table';
-import { mockProducts, mockInventory, categories } from '@/data/mock';
+import { categories } from '@/data/mock';
 import { formatCurrency } from '@/utils/formatters';
 import type { Product } from '@/types';
+import { useProducts } from '@/hooks/useProducts';
 
 export default function ProductsList() {
   const navigate = useNavigate();
+  const { products, isLoading, getStockTotal } = useProducts();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
-  const filtered = mockProducts.filter(p => {
+  const filtered = products.filter(p => {
     const matchesSearch = !search ||
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.sku.toLowerCase().includes(search.toLowerCase()) ||
@@ -24,8 +26,6 @@ export default function ProductsList() {
     return matchesSearch && matchesCategory;
   });
 
-  const getStockTotal = (productId: string) =>
-    mockInventory.filter(i => i.product_id === productId).reduce((sum, i) => sum + i.quantity, 0);
 
   const getStockStatus = (product: Product) => {
     const total = getStockTotal(product.id);
@@ -123,7 +123,7 @@ export default function ProductsList() {
         data={filtered}
         keyExtractor={(p) => p.id}
         onRowClick={(p) => navigate(`/produtos/${p.id}`)}
-        emptyMessage="Nenhum produto encontrado"
+        emptyMessage={isLoading ? "A carregar produtos..." : "Nenhum produto encontrado"}
       />
     </div>
   );

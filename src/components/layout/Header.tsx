@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Bell, Wifi, WifiOff } from 'lucide-react';
-import { mockAlerts } from '@/data/mock';
+import { useAlerts } from '@/hooks/useAlerts';
 import { Badge } from '@/components/ui/Badge';
 
 export function Header({ title }: { title: string }) {
   const [isOnline] = useState(true); // will come from sync hook later
-  const alertCount = mockAlerts.length;
+  const { count: alertCount } = useAlerts();
 
   return (
     <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-raised/50 backdrop-blur-sm sticky top-0 z-30">

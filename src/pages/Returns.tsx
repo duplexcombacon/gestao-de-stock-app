@@ -5,44 +5,40 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Table, type Column } from '@/components/ui/Table';
-import { mockReturns, getProductById, getUserById } from '@/data/mock';
+import { useReturns, type ReturnItem } from '@/hooks/useReturns';
 import { formatDateTime } from '@/utils/formatters';
-import type { Return, ReturnStatus } from '@/types';
 
-const statusConfig: Record<ReturnStatus, { label: string; variant: 'warning' | 'success' | 'danger' }> = {
+const statusConfig: Record<string, { label: string; variant: 'warning' | 'success' | 'danger' }> = {
   pending: { label: 'Pendente', variant: 'warning' },
   restocked: { label: 'Reintegrado', variant: 'success' },
   scrapped: { label: 'Abatido', variant: 'danger' },
 };
 
 export default function Returns() {
+  const { returns, loading, resolveReturn } = useReturns();
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selected, setSelected] = useState<Return | null>(null);
+  const [selected, setSelected] = useState<ReturnItem | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  const filtered = mockReturns.filter(r =>
+  const filtered = returns.filter((r) =>
     statusFilter === 'all' || r.status === statusFilter
   );
 
-  const handleResolve = (action: 'restock' | 'scrap') => {
+  const handleResolve = async (action: 'restock' | 'scrap') => {
     if (!selected) return;
-    // TODO: call supabase.rpc('resolve_return', { id: selected.id, action })
-    console.log(`Resolve return ${selected.id} → ${action}`);
+    await resolveReturn(selected.id, action);
     setShowModal(false);
     setSelected(null);
   };
 
-  const columns: Column<Return>[] = [
+  const columns: Column<ReturnItem>[] = [
     {
       key: 'date', header: 'Data',
       render: (r) => <span className="text-xs">{formatDateTime(r.created_at)}</span>,
     },
     {
       key: 'product', header: 'Produto',
-      render: (r) => {
-        const p = getProductById(r.product_id);
-        return <span className="font-medium">{p?.name || '—'}</span>;
-      },
+      render: (r) => <span className="font-medium">{r.product_name || '—'}</span>,
     },
     {
       key: 'qty', header: 'Qtd',
@@ -55,7 +51,7 @@ export default function Returns() {
     },
     {
       key: 'user', header: 'Registado por',
-      render: (r) => <span className="text-text-muted">{getUserById(r.user_id)?.name || '—'}</span>,
+      render: (r) => <span className="text-text-muted">{r.user_name || '—'}</span>,
       className: 'hidden md:table-cell',
     },
     {
@@ -88,6 +84,7 @@ export default function Returns() {
         columns={columns}
         data={filtered}
         keyExtractor={(r) => r.id}
+        emptyMessage={loading ? "A carregar devoluções..." : "Nenhuma devolução encontrada"}
         onRowClick={(r) => {
           if (r.status === 'pending') {
             setSelected(r);
@@ -102,7 +99,7 @@ export default function Returns() {
           <div className="space-y-4">
             <div>
               <p className="text-sm text-text-secondary">Produto</p>
-              <p className="font-medium">{getProductById(selected.product_id)?.name}</p>
+              <p className="font-medium">{selected.product_name}</p>
             </div>
             <div>
               <p className="text-sm text-text-secondary">Razão</p>

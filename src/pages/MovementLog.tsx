@@ -4,29 +4,30 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Table, type Column } from '@/components/ui/Table';
-import { mockMovements, getProductById, getWarehouseById, getUserById, mockProducts, mockUsers } from '@/data/mock';
+import { useMovements } from '@/hooks/useMovements';
 import { formatDateTime } from '@/utils/formatters';
 import type { Movement } from '@/types';
 
 export default function MovementLog() {
+  const { movements, isLoading } = useMovements();
   const [typeFilter, setTypeFilter] = useState('all');
   const [userFilter, setUserFilter] = useState('all');
   const [productFilter, setProductFilter] = useState('all');
 
-  const filtered = mockMovements.filter(m => {
+  const filtered = movements.filter((m: any) => {
     if (typeFilter !== 'all' && m.type !== typeFilter) return false;
     if (userFilter !== 'all' && m.user_id !== userFilter) return false;
     if (productFilter !== 'all' && m.product_id !== productFilter) return false;
     return true;
   });
 
+  const uniqueUsers = Array.from(new Map(movements.filter((m: any) => m.user).map((m: any) => [m.user_id, m.user.name])).entries());
+  const uniqueProducts = Array.from(new Map(movements.filter((m: any) => m.product).map((m: any) => [m.product_id, m.product.name])).entries());
+
   const exportCSV = () => {
     const header = 'Data,Utilizador,Tipo,Produto,Quantidade,Local,Notas\n';
-    const rows = filtered.map(m => {
-      const user = getUserById(m.user_id);
-      const product = getProductById(m.product_id);
-      const wh = getWarehouseById(m.warehouse_id);
-      return `${m.created_at},${user?.name},${m.type},${product?.name},${m.quantity},${wh?.name},${m.notes || ''}`;
+    const rows = filtered.map((m: any) => {
+      return `${m.created_at},${m.user?.name || ''},${m.type},${m.product?.name || ''},${m.quantity},${m.warehouse?.name || ''},${m.notes || ''}`;
     }).join('\n');
     const blob = new Blob([header + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -44,7 +45,7 @@ export default function MovementLog() {
     },
     {
       key: 'user', header: 'Utilizador',
-      render: (m) => <span className="text-text-secondary">{getUserById(m.user_id)?.name || '—'}</span>,
+      render: (m: any) => <span className="text-text-secondary">{m.user?.name || '—'}</span>,
       className: 'hidden sm:table-cell',
     },
     {
@@ -57,8 +58,8 @@ export default function MovementLog() {
     },
     {
       key: 'product', header: 'Produto',
-      render: (m) => {
-        const p = getProductById(m.product_id);
+      render: (m: any) => {
+        const p = m.product;
         return (
           <div>
             <p className="font-medium text-sm">{p?.name || '—'}</p>
@@ -77,7 +78,7 @@ export default function MovementLog() {
     },
     {
       key: 'location', header: 'Local',
-      render: (m) => <span className="text-text-muted text-sm">{getWarehouseById(m.warehouse_id)?.name || '—'}</span>,
+      render: (m: any) => <span className="text-text-muted text-sm">{m.warehouse?.name || '—'}</span>,
       className: 'hidden md:table-cell',
     },
     {
@@ -106,7 +107,7 @@ export default function MovementLog() {
           label="Utilizador"
           options={[
             { value: 'all', label: 'Todos' },
-            ...mockUsers.map(u => ({ value: u.id, label: u.name })),
+            ...uniqueUsers.map(([id, name]) => ({ value: id as string, label: name as string })),
           ]}
           value={userFilter}
           onChange={e => setUserFilter(e.target.value)}
@@ -115,7 +116,7 @@ export default function MovementLog() {
           label="Produto"
           options={[
             { value: 'all', label: 'Todos' },
-            ...mockProducts.map(p => ({ value: p.id, label: p.name })),
+            ...uniqueProducts.map(([id, name]) => ({ value: id as string, label: name as string })),
           ]}
           value={productFilter}
           onChange={e => setProductFilter(e.target.value)}
@@ -125,7 +126,7 @@ export default function MovementLog() {
         </Button>
       </div>
 
-      <Table columns={columns} data={filtered} keyExtractor={(m) => m.id} />
+      <Table columns={columns} data={filtered} keyExtractor={(m) => m.id} emptyMessage={isLoading ? "A carregar movimentos..." : "Sem movimentos"} />
     </div>
   );
 }

@@ -7,13 +7,13 @@ import { cn } from '@/utils/formatters';
 import { useAuth } from '@/hooks/useAuth';
 
 const links = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/produtos', icon: Package, label: 'Produtos' },
-  { to: '/scan', icon: ScanBarcode, label: 'Scanner' },
-  { to: '/armazens', icon: Warehouse, label: 'Armazéns' },
-  { to: '/movimentos', icon: ArrowLeftRight, label: 'Movimentos' },
-  { to: '/devolucoes', icon: RotateCcw, label: 'Devoluções' },
-  { to: '/admin/utilizadores', icon: Users, label: 'Utilizadores' },
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'gestor', 'auditor'] },
+  { to: '/produtos', icon: Package, label: 'Produtos', roles: ['admin', 'gestor', 'caixa', 'auditor'] },
+  { to: '/scan', icon: ScanBarcode, label: 'Scanner', roles: ['admin', 'gestor', 'caixa'] },
+  { to: '/armazens', icon: Warehouse, label: 'Armazéns', roles: ['admin', 'gestor', 'caixa', 'auditor'] },
+  { to: '/movimentos', icon: ArrowLeftRight, label: 'Movimentos', roles: ['admin', 'gestor', 'auditor'] },
+  { to: '/devolucoes', icon: RotateCcw, label: 'Devoluções', roles: ['admin', 'gestor'] },
+  { to: '/admin/utilizadores', icon: Users, label: 'Utilizadores', roles: ['admin'] },
 ];
 
 export function Sidebar() {
@@ -41,24 +41,26 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {links.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-accent/10 text-accent'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-overlay',
-              )
-            }
-          >
-            <Icon size={18} />
-            {label}
-          </NavLink>
-        ))}
+        {links
+          .filter(link => !user || link.roles.includes(user.role))
+          .map(({ to, icon: Icon, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-accent/10 text-accent'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-overlay',
+                )
+              }
+            >
+              <Icon size={18} />
+              {label}
+            </NavLink>
+          ))}
       </nav>
 
       {/* User */}

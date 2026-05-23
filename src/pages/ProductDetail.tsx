@@ -2,17 +2,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Warehouse, Clock, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Table, type Column } from '@/components/ui/Table';
-import {
-  getProductById, getInventoryForProduct, getBatchesForProduct,
-  getMovementsForProduct, getWarehouseById, getUserById,
-} from '@/data/mock';
+import { useProductDetail } from '@/hooks/useProducts';
 import { formatCurrency, formatDate, formatDateTime, daysUntil } from '@/utils/formatters';
 import type { Batch, Movement } from '@/types';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const product = getProductById(id || '');
+  const { product, inventory, batches, movements, isLoading } = useProductDetail(id);
+
+  if (isLoading) {
+    return <div className="flex justify-center py-20 text-text-muted">A carregar detalhes...</div>;
+  }
 
   if (!product) {
     return (
@@ -25,9 +26,7 @@ export default function ProductDetail() {
     );
   }
 
-  const inventory = getInventoryForProduct(product.id);
-  const batches = getBatchesForProduct(product.id);
-  const movements = getMovementsForProduct(product.id);
+
   const totalStock = inventory.reduce((s, i) => s + i.quantity, 0);
   const isLow = totalStock < product.min_stock;
 
@@ -45,7 +44,7 @@ export default function ProductDetail() {
         );
       }
     },
-    { key: 'warehouse', header: 'Local', render: (b) => <span className="text-text-muted">{getWarehouseById(b.warehouse_id)?.name || '—'}</span> },
+    { key: 'warehouse', header: 'Local', render: (b: any) => <span className="text-text-muted">{b.warehouses?.name || '—'}</span> },
   ];
 
   const movementColumns: Column<Movement>[] = [
@@ -58,7 +57,7 @@ export default function ProductDetail() {
       )
     },
     { key: 'qty', header: 'Qtd', render: (m) => <span className="font-mono">{m.type === 'out' ? '-' : '+'}{m.quantity}</span> },
-    { key: 'user', header: 'Utilizador', render: (m) => <span className="text-text-muted">{getUserById(m.user_id)?.name || '—'}</span>, className: 'hidden sm:table-cell' },
+    { key: 'user', header: 'Utilizador', render: (m: any) => <span className="text-text-muted">{m.profiles?.name || '—'}</span>, className: 'hidden sm:table-cell' },
     { key: 'notes', header: 'Notas', render: (m) => <span className="text-text-muted text-xs truncate max-w-[150px] inline-block">{m.notes || '—'}</span>, className: 'hidden md:table-cell' },
   ];
 
@@ -100,12 +99,11 @@ export default function ProductDetail() {
         <h3 className="text-sm font-semibold text-text-secondary mb-4">Distribuição por Armazém</h3>
         <div className="space-y-2">
           {inventory.map(inv => {
-            const wh = getWarehouseById(inv.warehouse_id);
             const pct = totalStock > 0 ? (inv.quantity / totalStock) * 100 : 0;
             return (
               <div key={inv.id} className="flex items-center gap-3">
                 <Warehouse size={14} className="text-text-muted shrink-0" />
-                <span className="text-sm min-w-[140px]">{wh?.name || '—'}</span>
+                <span className="text-sm min-w-[140px]">{inv.warehouses?.name || '—'}</span>
                 <div className="flex-1 bg-surface-overlay rounded-full h-2 overflow-hidden">
                   <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${pct}%` }} />
                 </div>

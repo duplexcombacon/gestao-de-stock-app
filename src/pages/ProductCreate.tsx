@@ -5,14 +5,17 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { categories } from '@/data/mock';
+import { useProducts } from '@/hooks/useProducts';
 
 export default function ProductCreate() {
   const navigate = useNavigate();
+  const { createProduct } = useProducts();
   const [form, setForm] = useState({
     name: '', sku: '', category: categories[0], unit: 'un',
     cost_price: '', min_stock: '', barcode: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
 
   const update = (field: string, value: string) => {
     setForm(f => ({ ...f, [field]: value }));
@@ -31,9 +34,27 @@ export default function ProductCreate() {
       return;
     }
 
-    // TODO: call supabase.from('products').insert()
-    console.log('Create product:', form);
-    navigate('/produtos');
+    const save = async () => {
+      setSaving(true);
+      try {
+        await createProduct({
+          name: form.name.trim(),
+          sku: form.sku.trim(),
+          category: form.category,
+          unit: form.unit,
+          cost_price: Number(form.cost_price),
+          min_stock: Number(form.min_stock),
+          barcode: form.barcode.trim() || undefined,
+        });
+        navigate('/produtos');
+      } catch (error: any) {
+        alert('Erro ao criar produto: ' + error.message);
+      } finally {
+        setSaving(false);
+      }
+    };
+    
+    save();
   };
 
   return (
@@ -77,7 +98,9 @@ export default function ProductCreate() {
         </div>
 
         <div className="flex items-center gap-3 pt-2">
-          <Button icon={<Save size={16} />} onClick={handleSubmit}>Guardar Produto</Button>
+          <Button icon={<Save size={16} />} onClick={handleSubmit} disabled={saving}>
+            {saving ? 'A guardar...' : 'Guardar Produto'}
+          </Button>
           <Button variant="ghost" onClick={() => navigate(-1)}>Cancelar</Button>
         </div>
       </div>
