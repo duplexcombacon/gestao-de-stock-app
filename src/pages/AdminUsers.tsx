@@ -1,14 +1,14 @@
-import { useState } from 'react';
-import { UserPlus, Shield, Pencil, Ban, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Shield, Pencil, Ban, Search, Info } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Table, type Column } from '@/components/ui/Table';
-import { mockUsers } from '@/data/mock';
 import { formatDate } from '@/utils/formatters';
 import type { User, UserRole } from '@/types';
+import { supabase } from '@/lib/supabase';
 
 const roleConfig: Record<UserRole, { label: string; variant: 'accent' | 'success' | 'warning' | 'default' }> = {
   admin: { label: 'Administrador', variant: 'accent' },
@@ -18,76 +18,76 @@ const roleConfig: Record<UserRole, { label: string; variant: 'accent' | 'success
 };
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'caixa' as UserRole });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [form, setForm] = useState({ name: '', role: 'caixa' as UserRole });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  async function fetchUsers() {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+      
+    if (data) {
+      setUsers(data as User[]);
+    } else if (error) {
+      console.error('Erro ao buscar utilizadores:', error);
+    }
+    setLoading(false);
+  }
 
   const filtered = users.filter(u =>
-    !search ||
-    u.name.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase())
+    (!search || u.name.toLowerCase().includes(search.toLowerCase()) || (u.email && u.email.toLowerCase().includes(search.toLowerCase())))
   );
-
-  const openCreate = () => {
-    setEditingUser(null);
-    setForm({ name: '', email: '', password: '', role: 'caixa' });
-    setErrors({});
-    setShowModal(true);
-  };
 
   const openEdit = (user: User) => {
     setEditingUser(user);
-    setForm({ name: user.name, email: user.email, password: '', role: user.role });
-    setErrors({});
-    setShowModal(true);
+    setForm({ name: user.name, role: user.role });
+    setShowEditModal(true);
   };
 
-  const update = (field: string, value: string) => {
-    setForm(f => ({ ...f, [field]: value }));
-    setErrors(e => ({ ...e, [field]: '' }));
-  };
+  const handleSave = async () => {
+    if (!editingUser) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ name: form.name, role: form.role })
+      .eq('id', editingUser.id);
 
-  const handleSubmit = () => {
-    const newErrors: Record<string, string> = {};
-    if (!form.name.trim()) newErrors.name = 'Nome é obrigatório';
-    if (!form.email.trim()) newErrors.email = 'Email é obrigatório';
-    if (!editingUser && !form.password) newErrors.password = 'Password é obrigatória';
-    if (form.password && form.password.length < 6) newErrors.password = 'Mínimo 6 caracteres';
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    if (editingUser) {
-      // TODO: supabase.auth.admin.updateUserById(editingUser.id, { email, password })
-      //       supabase.from('profiles').update({ name, role }).eq('id', editingUser.id)
-      setUsers(prev => prev.map(u =>
-        u.id === editingUser.id ? { ...u, name: form.name, email: form.email, role: form.role } : u
+    if (!error) {
+      setUsers(prev => prev.map(u => 
+        u.id === editingUser.id ? { ...u, name: form.name, role: form.role } : u
       ));
+      setShowEditModal(false);
     } else {
-      // TODO: supabase.auth.admin.createUser({ email, password, email_confirm: true })
-      //       supabase.from('profiles').insert({ id: newUser.id, name, role })
-      const newUser: User = {
-        id: `u${Date.now()}`,
-        name: form.name,
-        email: form.email,
-        role: form.role,
-        created_at: new Date().toISOString(),
-      };
-      setUsers(prev => [...prev, newUser]);
+      alert('Erro ao guardar: ' + error.message);
     }
-
-    setShowModal(false);
+    setSaving(false);
   };
 
-  const handleToggleStatus = (user: User) => {
-    // TODO: supabase.auth.admin.updateUserById(user.id, { banned: true/false })
-    if (confirm(`Desativar a conta de ${user.name}?`)) {
-      setUsers(prev => prev.filter(u => u.id !== user.id));
+  const handleToggleStatus = async (user: User) => {
+    const isActive = user.active !== false; // default true
+    if (confirm(`Tem a certeza que deseja ${isActive ? 'desativar' : 'ativar'} a conta de ${user.name}?`)) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ active: !isActive })
+        .eq('id', user.id);
+        
+      if (!error) {
+        setUsers(prev => prev.map(u => u.id === user.id ? { ...u, active: !isActive } : u));
+      } else {
+        alert('Erro ao alterar estado: ' + error.message);
+      }
     }
   };
 
@@ -96,12 +96,15 @@ export default function AdminUsers() {
       key: 'name',
       header: 'Utilizador',
       render: (u) => (
-        <div className="flex items-center gap-3">
-          <div className="size-8 rounded-full bg-surface-overlay flex items-center justify-center text-xs font-bold text-text-secondary">
+        <div className={`flex items-center gap-3 ${u.active === false ? 'opacity-50' : ''}`}>
+          <div className="size-8 rounded-full bg-surface-overlay flex items-center justify-center text-xs font-bold text-text-secondary shrink-0">
             {u.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <p className="font-medium">{u.name}</p>
+            <p className="font-medium flex items-center gap-2">
+              {u.name}
+              {u.active === false && <Badge variant="default">Inativo</Badge>}
+            </p>
             <p className="text-xs text-text-muted">{u.email}</p>
           </div>
         </div>
@@ -113,9 +116,9 @@ export default function AdminUsers() {
       key: 'role',
       header: 'Papel',
       render: (u) => {
-        const cfg = roleConfig[u.role];
+        const cfg = roleConfig[u.role] || { label: u.role, variant: 'default' };
         return (
-          <Badge variant={cfg.variant}>
+          <Badge variant={cfg.variant as any}>
             <Shield size={12} /> {cfg.label}
           </Badge>
         );
@@ -143,10 +146,14 @@ export default function AdminUsers() {
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); handleToggleStatus(u); }}
-            className="p-1.5 rounded-md text-text-muted hover:text-danger hover:bg-danger-muted transition-colors cursor-pointer"
-            title="Desativar"
+            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+              u.active === false 
+                ? 'text-success hover:bg-success-muted' 
+                : 'text-text-muted hover:text-danger hover:bg-danger-muted'
+            }`}
+            title={u.active === false ? "Ativar conta" : "Desativar conta"}
           >
-            <Ban size={14} />
+            {u.active === false ? <Shield size={14} /> : <Ban size={14} />}
           </button>
         </div>
       ),
@@ -165,12 +172,12 @@ export default function AdminUsers() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button icon={<UserPlus size={16} />} onClick={openCreate}>
+        <Button icon={<Info size={16} />} onClick={() => setShowInfoModal(true)}>
           Novo Utilizador
         </Button>
       </div>
 
-      <div className="flex gap-4 text-sm text-text-secondary">
+      <div className="flex flex-wrap gap-4 text-sm text-text-secondary">
         {Object.entries(roleConfig).map(([role, cfg]) => {
           const count = users.filter(u => u.role === role).length;
           return (
@@ -188,19 +195,23 @@ export default function AdminUsers() {
         columns={columns}
         data={filtered}
         keyExtractor={(u) => u.id}
-        emptyMessage="Nenhum utilizador encontrado"
+        emptyMessage={loading ? "A carregar utilizadores..." : "Nenhum utilizador encontrado"}
       />
 
+      {/* Edit Modal */}
       <Modal
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        title={editingUser ? 'Editar Utilizador' : 'Novo Utilizador'}
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Editar Utilizador"
         size="sm"
       >
         <div className="space-y-4">
-          <Input label="Nome completo" placeholder="Ex: João Silva" value={form.name} onChange={e => update('name', e.target.value)} error={errors.name} />
-          <Input label="Email" type="email" placeholder="nome@empresa.pt" value={form.email} onChange={e => update('email', e.target.value)} error={errors.email} />
-          <Input label={editingUser ? 'Nova password (deixar vazio para manter)' : 'Password'} type="password" placeholder="••••••••" value={form.password} onChange={e => update('password', e.target.value)} error={errors.password} />
+          <Input 
+            label="Nome completo" 
+            placeholder="Ex: João Silva" 
+            value={form.name} 
+            onChange={e => setForm(f => ({ ...f, name: e.target.value }))} 
+          />
           <Select
             label="Papel"
             options={[
@@ -210,13 +221,39 @@ export default function AdminUsers() {
               { value: 'auditor', label: 'Auditor — Apenas leitura' },
             ]}
             value={form.role}
-            onChange={e => update('role', e.target.value)}
+            onChange={e => setForm(f => ({ ...f, role: e.target.value as UserRole }))}
           />
           <div className="flex gap-3 pt-2">
-            <Button onClick={handleSubmit} className="flex-1">
-              {editingUser ? 'Guardar Alterações' : 'Criar Utilizador'}
+            <Button onClick={handleSave} className="flex-1" disabled={saving}>
+              {saving ? 'A guardar...' : 'Guardar Alterações'}
             </Button>
-            <Button variant="ghost" onClick={() => setShowModal(false)}>Cancelar</Button>
+            <Button variant="ghost" onClick={() => setShowEditModal(false)}>Cancelar</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Info Modal about creation */}
+      <Modal
+        open={showInfoModal}
+        onClose={() => setShowInfoModal(false)}
+        title="Adicionar Utilizadores"
+        size="sm"
+      >
+        <div className="space-y-4 text-sm text-text-secondary">
+          <p>
+            Por motivos de segurança, o sistema <strong>não permite a criação manual de contas</strong> por administradores (para evitar problemas de roubo de sessão).
+          </p>
+          <div className="bg-surface-overlay p-4 rounded-lg border border-border">
+            <h4 className="font-semibold text-text-primary mb-2">Qual é o fluxo correto?</h4>
+            <ol className="list-decimal list-inside space-y-1">
+              <li>O novo funcionário regista-se no ecrã de Login.</li>
+              <li>A conta dele entra aqui no sistema como <Badge variant="warning">Funcionário</Badge> (predefinição).</li>
+              <li>Tu (Admin) clicas no botão de editar (✏️) ao lado do nome dele.</li>
+              <li>Alterar o papel dele para Gestor, Auditor ou Admin.</li>
+            </ol>
+          </div>
+          <div className="flex justify-end pt-2">
+            <Button onClick={() => setShowInfoModal(false)}>Percebido</Button>
           </div>
         </div>
       </Modal>

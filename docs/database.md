@@ -628,62 +628,108 @@ alter publication supabase_realtime add table public.returns;
 
 ## Resumo das Tabelas
 
-| Tabela | Descrição | Registos esperados |
-|--------|-----------|-------------------|
-| `profiles` | Utilizadores e papéis (RBAC) | Dezenas |
-| `products` | Catálogo de produtos | Centenas a milhares |
-| `warehouses` | Localizações físicas (árvore) | Dezenas |
-| `inventory` | Stock atual por produto/local | Milhares |
-| `batches` | Lotes com validade | Centenas |
-| `movements` | Histórico de transações | Milhares a milhões |
-| `returns` | Devoluções pendentes/resolvidas | Centenas |
-| `audit_logs` | Log imutável de auditoria | Milhões |
+| Tabela       | Descrição                       | Registos esperados  |
+| ------------ | ------------------------------- | ------------------- |
+| `profiles`   | Utilizadores e papéis (RBAC)    | Dezenas             |
+| `products`   | Catálogo de produtos            | Centenas a milhares |
+| `warehouses` | Localizações físicas (árvore)   | Dezenas             |
+| `inventory`  | Stock atual por produto/local   | Milhares            |
+| `batches`    | Lotes com validade              | Centenas            |
+| `movements`  | Histórico de transações         | Milhares a milhões  |
+| `returns`    | Devoluções pendentes/resolvidas | Centenas            |
+| `audit_logs` | Log imutável de auditoria       | Milhões             |
 
 ## Views
 
-| View | Utilização |
-|------|-----------|
-| `low_stock_alerts` | Produtos abaixo do stock mínimo |
-| `expiring_batches` | Lotes a expirar nos próximos 30 dias |
-| `alerts_view` | Combinação de todos os alertas (para Dashboard) |
+| View               | Utilização                                      |
+| ------------------ | ----------------------------------------------- |
+| `low_stock_alerts` | Produtos abaixo do stock mínimo                 |
+| `expiring_batches` | Lotes a expirar nos próximos 30 dias            |
+| `alerts_view`      | Combinação de todos os alertas (para Dashboard) |
 
 ## Stored Procedures (RPC)
 
-| Função | Utilização |
-|--------|-----------|
-| `create_movement()` | Transação atómica de entrada/saída/transferência |
-| `resolve_return()` | Resolver devolução (reintegrar ou abater) |
-| `get_dashboard_kpis()` | Agregar KPIs para o dashboard |
+| Função                 | Utilização                                       |
+| ---------------------- | ------------------------------------------------ |
+| `create_movement()`    | Transação atómica de entrada/saída/transferência |
+| `resolve_return()`     | Resolver devolução (reintegrar ou abater)        |
+| `get_dashboard_kpis()` | Agregar KPIs para o dashboard                    |
 
 ## BUCKETS
- ```sql
+
+````sql
 
 -- 1. Permitir leitura pública para que as imagens apareçam na app
 create policy "Leitura publica de imagens"
-  on storage.objects for select
-  using ( bucket_id = 'product-images' );
+ on storage.objects for select
+ using ( bucket_id = 'product-images' );
 
 -- 2. Permitir que apenas Admin e Gestor façam upload (Insert)
 create policy "Admin e Gestor podem fazer upload"
-  on storage.objects for insert
-  with check (
-    bucket_id = 'product-images' and
-    public.get_user_role() in ('admin', 'gestor')
-  );
+ on storage.objects for insert
+ with check (
+   bucket_id = 'product-images' and
+   public.get_user_role() in ('admin', 'gestor')
+ );
 
 -- 3. Permitir que apenas Admin e Gestor apaguem/substituam imagens (Update/Delete)
 create policy "Admin e Gestor podem alterar/apagar imagens"
-  on storage.objects for update
-  using (
-    bucket_id = 'product-images' and
-    public.get_user_role() in ('admin', 'gestor')
-  );
+ on storage.objects for update
+ using (
+   bucket_id = 'product-images' and
+   public.get_user_role() in ('admin', 'gestor')
+ );
 
 create policy "Admin e Gestor podem apagar imagens"
-  on storage.objects for delete
-  using (
-    bucket_id = 'product-images' and
-    public.get_user_role() in ('admin', 'gestor')
-  );
+ on storage.objects for delete
+ using (
+   bucket_id = 'product-images' and
+   public.get_user_role() in ('admin', 'gestor')
+ );
+```sql
 
-  ```sql
+## UPDATE (Role admin não estava a ser detetada)
+
+create or replace function public.get_user_role()
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+ v_role text;
+begin
+ select role into v_role from public.profiles where id = auth.uid();
+ return v_role;
+end;
+$$;
+````
+
+## UPDATE DO LOOP INFINITO INVISIVEL
+
+-- 1. Matar as queries encravadas que estão a bloquear o servidor
+SELECT pg_cancel_backend(pid) FROM pg_stat_activity WHERE state = 'active' AND pid <> pg_backend_pid();
+
+-- 2. Apagar as políticas que estavam a causar o loop infinito
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Admin can manage all profiles" ON public.profiles;
+
+-- 3. PERMISSÃO DE LEITURA (SELECT): Todos os utilizadores logados podem ver quem está no sistema.
+-- ISTO QUEBRA O LOOP INFINITO, porque o SELECT já não precisa de avaliar se és Admin!
+CREATE POLICY "Anyone can read profiles"
+ON public.profiles FOR SELECT USING (auth.uid() IS NOT NULL);
+
+-- 4. PERMISSÕES DE ESCRITA: Apenas o Admin pode criar, editar ou apagar utilizadores.
+CREATE POLICY "Admin can insert profiles"
+ON public.profiles FOR INSERT WITH CHECK (public.get_user_role() = 'admin');
+
+CREATE POLICY "Admin can update profiles"
+ON public.profiles FOR UPDATE USING (public.get_user_role() = 'admin');
+
+CREATE POLICY "Admin can delete profiles"
+ON public.profiles FOR DELETE USING (public.get_user_role() = 'admin');
+
+-- 5. O utilizador pode atualizar a própria password/dados (opcional na tabela profiles)
+CREATE POLICY "Users can update own profile data"
+ON public.profiles FOR UPDATE USING (id = auth.uid());
