@@ -13,7 +13,7 @@
 - Gestão de Lotes e Validades: Rastreio de lotes e alertas de validade (FEFO).
 - Gestão de Devoluções: Registar produtos devolvidos e definir destino.
 - Hierarquia de Armazéns: Armazém principal e sub-armazéns/prateleiras.
-- Navegação por QR Code: Scan de QR code do sub-armazém para listar os produtos associados.
+- Navegação por QR Code: Scan de QR code do sub-armazém para listar os produtos associados. Na primeira vez que é feita a leitura a base de dados tem de ler o codigo de barras junto com o nome, e um botao guardar, ao guradar ela fica nova linha na base de dados e a proxima ja la fica. 
 - Registo de Movimentos: Histórico de quem moveu o quê e quando.
 - Alertas em tempo real: Avisos de stock mínimo e validades críticas.
 - Modo Offline: Scan de produtos sem internet e sincronização posterior.

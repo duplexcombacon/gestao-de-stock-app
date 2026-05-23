@@ -22,6 +22,21 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scanLine {
+  0%   { transform: translateY(0); }
+  50%  { transform: translateY(244px); }
+  100% { transform: translateY(0); }
+}
+
+.animate-scan-line {
+  animation: scanLine 2s ease-in-out infinite;
+}
+
 @layer base {
   body {
     @apply bg-surface text-text-primary font-sans antialiased;
