@@ -95,6 +95,19 @@ export interface AuditLog {
   created_at: string;
 }
 
+// ── Scanner ──
+export type ScanMode = 'location' | 'product';
+
+export interface NewProductFormData {
+  barcode: string;
+  name: string;
+  sku: string;
+  category: string;
+  unit: string;
+  cost_price: number;
+  min_stock: number;
+}
+
 // ── Dashboard ──
 export interface DashboardKPIs {
   total_products: number;
