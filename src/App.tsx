@@ -2,7 +2,6 @@ import { Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import type { UserRole } from '@/types';
 
-// ... (existing imports stay as they were, we will re-import them below)
 import { BrowserRouter, Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -19,6 +18,7 @@ import WarehousesList from '@/pages/WarehousesList';
 import WarehouseDetail from '@/pages/WarehouseDetail';
 import MovementLog from '@/pages/MovementLog';
 import Returns from '@/pages/Returns';
+import AdminUsers from '@/pages/AdminUsers';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,6 +34,7 @@ const pageTitles: Record<string, string> = {
   '/armazens': 'Armazéns',
   '/movimentos': 'Movimentos',
   '/devolucoes': 'Devoluções',
+  '/admin/utilizadores': 'Gestão de Utilizadores',
 };
 
 function AppLayout() {
@@ -120,6 +121,16 @@ export default function App() {
               <Route path="/armazens/:id" element={<WarehouseDetail />} />
               <Route path="/movimentos" element={<MovementLog />} />
               <Route path="/devolucoes" element={<Returns />} />
+              
+              {/* Apenas admin pode gerir utilizadores */}
+              <Route 
+                path="/admin/utilizadores" 
+                element={
+                  <RoleGuard roles={['admin']}>
+                    <AdminUsers />
+                  </RoleGuard>
+                } 
+              />
             </Route>
           </Routes>
         </BrowserRouter>

@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Package, ScanBarcode, Warehouse,
-  ArrowLeftRight, RotateCcw, LogOut,
+  ArrowLeftRight, RotateCcw, Users, LogOut,
 } from 'lucide-react';
 import { cn } from '@/utils/formatters';
 
@@ -12,6 +12,7 @@ const links = [
   { to: '/armazens', icon: Warehouse, label: 'Armazéns' },
   { to: '/movimentos', icon: ArrowLeftRight, label: 'Movimentos' },
   { to: '/devolucoes', icon: RotateCcw, label: 'Devoluções' },
+  { to: '/admin/utilizadores', icon: Users, label: 'Utilizadores' },
 ];
 
 export function Sidebar() {
