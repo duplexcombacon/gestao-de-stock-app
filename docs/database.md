@@ -922,3 +922,80 @@ BEGIN
 END;
 $$;
 ````
+
+## ROTA PARA RESOLVER DEVOLUÇÕES
+
+-- ============================================================
+-- FUNÇÃO PARA RESOLVER DEVOLUÇÕES (RPC)
+-- ============================================================
+-- Esta função permite que um gestor/admin resolva uma devolução pendente.
+-- Ações possíveis:
+-- 'restock': Reintegra no stock (cria movimento de entrada e atualiza inventário)
+-- 'scrap': Abate o produto (marca como lixo, não mexe no inventário)
+
+CREATE OR REPLACE FUNCTION public.resolve_return(p_return_id UUID, p_action TEXT, p_user_id UUID)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+v_return RECORD;
+BEGIN
+-- 1. Obter a devolução
+SELECT \* INTO v_return FROM public.returns WHERE id = p_return_id;
+
+IF v_return.id IS NULL THEN
+RAISE EXCEPTION 'Devolução não encontrada';
+END IF;
+
+IF v_return.status != 'pending' THEN
+RAISE EXCEPTION 'Esta devolução já foi resolvida (estado: %)', v_return.status;
+END IF;
+
+-- 2. Processar a ação
+IF p_action = 'restock' THEN
+
+    IF v_return.warehouse_id IS NULL THEN
+      RAISE EXCEPTION 'Não é possível reintegrar um produto sem localização (warehouse_id)';
+    END IF;
+
+    -- A. Atualizar Inventário (Soma a quantidade)
+    INSERT INTO public.inventory (product_id, warehouse_id, quantity)
+    VALUES (v_return.product_id, v_return.warehouse_id, v_return.quantity)
+    ON CONFLICT (product_id, warehouse_id)
+    DO UPDATE SET quantity = inventory.quantity + EXCLUDED.quantity, updated_at = now();
+
+    -- B. Registar o Movimento Histórico
+    INSERT INTO public.movements (product_id, warehouse_id, type, quantity, user_id, notes)
+    VALUES (v_return.product_id, v_return.warehouse_id, 'in', v_return.quantity, p_user_id, 'Reintegração de devolução');
+
+    -- C. Atualizar o estado da Devolução
+    UPDATE public.returns
+    SET status = 'restocked', resolved_by = p_user_id, resolved_at = now()
+    WHERE id = p_return_id;
+
+ELSIF p_action = 'scrap' THEN
+
+    -- Atualizar o estado da Devolução (vai para o lixo, não entra no stock)
+    UPDATE public.returns
+    SET status = 'scrapped', resolved_by = p_user_id, resolved_at = now()
+    WHERE id = p_return_id;
+
+ELSE
+RAISE EXCEPTION 'Ação inválida. Use "restock" ou "scrap".';
+END IF;
+
+END;
+
+$$
+;
+
+-- 3. Dar permissões de execução
+GRANT EXECUTE ON FUNCTION public.resolve_return(UUID, TEXT, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_return(UUID, TEXT, UUID) TO anon;
+
+-- 4. Atualizar a cache da API REST
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload config';
+$$

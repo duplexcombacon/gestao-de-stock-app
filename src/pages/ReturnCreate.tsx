@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { mockProducts, mockWarehousesFlat } from '@/data/mock';
+import { useProducts } from '@/hooks/useProducts';
+import { useWarehouses } from '@/hooks/useWarehouses';
+import { useReturns } from '@/hooks/useReturns';
 
 const reasonOptions = [
   { value: 'Embalagem danificada', label: 'Embalagem danificada' },
@@ -18,15 +20,35 @@ export default function ReturnCreate() {
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const productOptions = useMemo(() => mockProducts.map(p => ({ value: p.id, label: `${p.name} · ${p.sku}` })), []);
-  const warehouseOptions = useMemo(() => mockWarehousesFlat.map(w => ({ value: w.id, label: w.name })), []);
+  
+  const { products, isLoading: loadingProducts } = useProducts();
+  const { warehousesFlat, isLoading: loadingWarehouses } = useWarehouses();
+  const { createReturn } = useReturns();
+
+  const productOptions = useMemo(() => 
+    products.map(p => ({ value: p.id, label: `${p.name} · ${p.sku}` })), 
+  [products]);
+
+  const warehouseOptions = useMemo(() => 
+    warehousesFlat.map(w => ({ value: w.id, label: w.name })), 
+  [warehousesFlat]);
+
   const [form, setForm] = useState({
-    product_id: mockProducts[0]?.id || '',
-    warehouse_id: mockWarehousesFlat[0]?.id || '',
+    product_id: '',
+    warehouse_id: '',
     quantity: '1',
     reason: reasonOptions[0].value,
     notes: '',
   });
+
+  // Pre-select first options when data loads
+  useEffect(() => {
+    setForm(prev => ({
+      ...prev,
+      product_id: prev.product_id || (products[0]?.id ?? ''),
+      warehouse_id: prev.warehouse_id || (warehousesFlat[0]?.id ?? ''),
+    }));
+  }, [products, warehousesFlat]);
 
   const update = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -46,11 +68,27 @@ export default function ReturnCreate() {
     }
 
     setSaving(true);
-    // Aqui deve entrar insert real em returns com status pending.
-    await new Promise(resolve => setTimeout(resolve, 250));
+    const fullReason = form.notes ? `${form.reason} - ${form.notes}` : form.reason;
+    
+    const { error } = await createReturn(
+      form.product_id,
+      Number(form.quantity),
+      form.warehouse_id,
+      fullReason
+    );
+
     setSaving(false);
-    navigate('/devolucoes');
+    
+    if (error) {
+      alert(`Erro: ${error}`);
+    } else {
+      navigate('/devolucoes');
+    }
   };
+
+  if (loadingProducts || loadingWarehouses) {
+    return <div className="flex justify-center py-20 text-text-muted">A carregar formulário...</div>;
+  }
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -66,22 +104,55 @@ export default function ReturnCreate() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
-            <Select label="Produto" value={form.product_id} onChange={e => update('product_id', e.target.value)} options={productOptions} />
+            <Select 
+              label="Produto" 
+              value={form.product_id} 
+              onChange={e => update('product_id', e.target.value)} 
+              options={productOptions} 
+            />
             {errors.product_id && <p className="text-xs text-danger mt-1">{errors.product_id}</p>}
           </div>
-          <Select label="Localização" value={form.warehouse_id} onChange={e => update('warehouse_id', e.target.value)} options={warehouseOptions} />
-          <Input label="Quantidade" type="number" min="1" value={form.quantity} onChange={e => update('quantity', e.target.value)} error={errors.quantity} />
+          <Select 
+            label="Localização Original / Destino" 
+            value={form.warehouse_id} 
+            onChange={e => update('warehouse_id', e.target.value)} 
+            options={warehouseOptions} 
+          />
+          <Input 
+            label="Quantidade" 
+            type="number" 
+            min="1" 
+            value={form.quantity} 
+            onChange={e => update('quantity', e.target.value)} 
+            error={errors.quantity} 
+          />
           <div className="sm:col-span-2">
-            <Select label="Razão" value={form.reason} onChange={e => update('reason', e.target.value)} options={reasonOptions} />
+            <Select 
+              label="Razão" 
+              value={form.reason} 
+              onChange={e => update('reason', e.target.value)} 
+              options={reasonOptions} 
+            />
           </div>
           <div className="sm:col-span-2">
-            <Input label="Notas" placeholder="Opcional" value={form.notes} onChange={e => update('notes', e.target.value)} />
+            <Input 
+              label="Notas" 
+              placeholder="Opcional. Ex: O cliente devolveu porque se enganou na cor." 
+              value={form.notes} 
+              onChange={e => update('notes', e.target.value)} 
+            />
           </div>
         </div>
 
         <div className="flex items-center gap-3 pt-2">
-          <Button icon={<Save size={16} />} onClick={handleSave} loading={saving}>Registar Devolução</Button>
-          <Button variant="ghost" onClick={() => navigate(-1)}>Cancelar</Button>
+          <Button 
+            icon={saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
+            onClick={handleSave} 
+            disabled={saving}
+          >
+            Registar Devolução
+          </Button>
+          <Button variant="ghost" onClick={() => navigate(-1)} disabled={saving}>Cancelar</Button>
         </div>
       </div>
     </div>

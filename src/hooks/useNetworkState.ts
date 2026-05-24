@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/dexie';
 
 export function useNetworkState() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -16,5 +18,11 @@ export function useNetworkState() {
     };
   }, []);
 
-  return { isOnline };
+  const pendingCount = useLiveQuery(
+    () => db.pendingOps.where('status').anyOf('pending', 'error').count(),
+    [],
+    0
+  );
+
+  return { isOnline, pendingCount };
 }

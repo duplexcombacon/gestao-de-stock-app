@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useNavigate } from 'react-router-dom';
 
 export function Header({ title }: { title: string }) {
-  const { isOnline } = useNetworkState();
+  const { isOnline, pendingCount = 0 } = useNetworkState();
   const { alerts, count: alertCount } = useAlerts();
   const [showNotifications, setShowNotifications] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -29,8 +29,16 @@ export function Header({ title }: { title: string }) {
       <div className="flex items-center gap-3">
         {/* Connection status */}
         <div className="flex items-center gap-1.5 text-xs text-text-muted">
-          {isOnline ? <Wifi size={14} className="text-success" /> : <WifiOff size={14} className="text-danger" />}
-          <span className="hidden sm:inline">{isOnline ? 'Online' : 'Offline'}</span>
+          {isOnline ? (
+            <Wifi size={14} className="text-success" />
+          ) : (
+            <WifiOff size={14} className="text-danger" />
+          )}
+          <span className="hidden sm:inline">
+            {isOnline 
+              ? 'Online' 
+              : `Offline ${pendingCount > 0 ? `(${pendingCount} pendentes)` : ''}`}
+          </span>
         </div>
 
         {/* Alerts */}
