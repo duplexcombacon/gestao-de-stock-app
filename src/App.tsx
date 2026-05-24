@@ -56,9 +56,10 @@ function AppLayout() {
   useNotifications();
 
   useEffect(() => {
-    forceSync();
+    forceSync(); // Tenta forçar a sincronização de dados offline mal a app abra
   }, []);
 
+  // Determinar o título da página com base no caminho atual
   let title = pageTitles[path] || '';
   if (!title) {
     if (path.endsWith('/editar')) title = 'Editar Produto';
@@ -87,6 +88,7 @@ function ProtectedRoute() {
   const { user, loading } = useAuth();
   
   if (loading) {
+    // Mostra um spinner de carregamento enquanto verifica a sessão do utilizador
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface">
         <div className="size-8 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
@@ -95,18 +97,21 @@ function ProtectedRoute() {
   }
   
   if (!user) {
+    // Redireciona para o login se não houver utilizador autenticado
     return <Navigate to="/login" replace />;
   }
   
   return <AppLayout />;
 }
 
+// Componente que bloqueia o acesso a certas páginas baseado na função (role) do utilizador
 function RoleGuard({ roles, children }: { roles: UserRole[]; children: React.ReactNode }) {
   const { hasRole, loading } = useAuth();
   
   if (loading) return null;
   
   if (!hasRole(...roles)) {
+    // Redireciona para a home se o utilizador não tiver o role necessário
     return <Navigate to="/" replace />;
   }
   

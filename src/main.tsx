@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
 
+// Componente ErrorBoundary para capturar e mostrar erros sem quebrar toda a aplicação
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
   constructor(props: { children: ReactNode }) {
     super(props);
@@ -10,6 +11,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 
   static getDerivedStateFromError(error: Error) {
+    // Atualiza o estado para que o próximo render mostre a interface de fallback (erro)
     return { hasError: true, error };
   }
 
@@ -27,10 +29,12 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
         </div>
       );
     }
+    // Renderiza a aplicação normalmente se não houver erros
     return this.props.children;
   }
 }
 
+// Ponto de entrada da aplicação React, onde é montada no DOM
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

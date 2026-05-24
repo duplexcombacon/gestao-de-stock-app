@@ -1,10 +1,11 @@
 import Dexie, { type Table } from 'dexie';
 
+// Define a estrutura para as operações que são feitas offline e que precisam de ser sincronizadas mais tarde
 export interface PendingOperation {
   id?: number;
   type: 'movement';
-  payload: Record<string, unknown>;
-  status: 'pending' | 'synced' | 'error';
+  payload: Record<string, unknown>; // Os dados originais do movimento
+  status: 'pending' | 'synced' | 'error'; // O estado da sincronização
   error_message?: string;
   created_at: string;
 }
@@ -28,12 +29,14 @@ export interface CachedWarehouse {
   qr_code: string | null;
 }
 
+// Cache do inventário local por produto e armazém
 export interface CachedInventory {
   product_id: string;
   warehouse_id: string;
   quantity: number;
 }
 
+// Configuração da base de dados local offline usando o Dexie (IndexedDB)
 class StockDB extends Dexie {
   pendingOps!: Table<PendingOperation, number>;
   cachedProducts!: Table<CachedProduct, string>;

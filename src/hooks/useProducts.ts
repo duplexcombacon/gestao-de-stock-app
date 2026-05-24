@@ -3,14 +3,17 @@ import { supabase } from '@/lib/supabase';
 import { db } from '@/lib/dexie';
 import type { Product, NewProductFormData } from '@/types';
 
-// ── Supabase-ready functions ──
+// ── Funções auxiliares baseadas no Supabase e cache local ──
 
+// Procura um produto por código de barras (pesquisa primeiro no cache se estiver offline)
 export async function findProductByBarcode(barcode: string): Promise<Product | null> {
   if (!navigator.onLine) {
+    // Se estiver sem internet, procura no IndexedDB (Dexie)
     const cached = await db.cachedProducts.where('barcode').equals(barcode).first();
     return cached ? (cached as unknown as Product) : null;
   }
 
+  // Se tiver internet, faz o pedido diretamente ao Supabase
   const { data, error } = await supabase
     .from('products')
     .select('*')
@@ -47,7 +50,7 @@ export async function createMovement(
   quantity: number,
   notes?: string,
 ): Promise<void> {
-  // If offline, queue the operation
+  // Se estiver offline, guarda a operação numa fila local para ser sincronizada depois
   if (!navigator.onLine) {
     console.log('[Offline] A guardar movimento pendente...');
     // Try to get user from local profile if available, or just use a placeholder
@@ -88,13 +91,15 @@ export async function createMovement(
   if (error) throw error;
 }
 
-// ── Hook ──
+// ── Hook Principal ──
+// O hook 'useProducts' serve para carregar e gerir a lista de todos os produtos
 export function useProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // Função envolta em useCallback para não ser recriada a cada render
   const fetchProducts = useCallback(async () => {
     setIsLoading(true);
     try {

@@ -13,15 +13,16 @@ interface AuthContextValue {
   hasRole: (...roles: UserRole[]) => boolean;
 }
 
+// Define o contexto global de Autenticação (a "caixa" onde os dados do user vão viver e ser partilhados por toda a aplicação)
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 // ── Auth Provider ─────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null); // Guarda o utilizador atual, null se não estiver logado
+  const [loading, setLoading] = useState(true); // Indica se estamos a aguardar resposta do servidor sobre o estado do user
 
-  /** Fetch the profile (with role) from the `profiles` table */
+  /** Função que vai buscar à tabela "profiles" os detalhes extra do utilizador (como o "role"/função) */
   const fetchProfile = useCallback(async (userId: string, email: string): Promise<User | null> => {
     const { data, error } = await supabase
       .from('profiles')
@@ -97,9 +98,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchProfile]);
 
+  // Função para fazer o login tradicional por email e password
   const signIn = useCallback(async (email: string, password: string): Promise<string | null> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return error.message;
+    if (error) return error.message; // Retorna a mensagem de erro, se houver
     return null;
   }, []);
 
@@ -108,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  // Verifica se o utilizador logado tem um dos roles especificados (útil para proteger rotas ou botões)
   const hasRole = useCallback((...roles: UserRole[]) => {
     return user ? roles.includes(user.role) : false;
   }, [user]);

@@ -10,7 +10,7 @@ interface CameraScannerProps {
 }
 
 export function CameraScanner({ mode, onDecode, onClose }: CameraScannerProps) {
-  // Guard against firing onDecode multiple times for the same frame burst
+  // O estado "fired" serve para garantir que só disparamos a função de descodificação UMA vez por cada código lido
   const [fired, setFired] = useState(false);
 
   const { ref } = useZxing({
@@ -22,7 +22,8 @@ export function CameraScanner({ mode, onDecode, onClose }: CameraScannerProps) {
         advanced: [{ focusMode: 'continuous' } as any] // Força autofocus contínuo (em dispositivos compatíveis)
       } 
     },
-    timeBetweenDecodingAttempts: 50, // 20 FPS em vez de 3 FPS (300ms) para ser instantâneo
+    // Configura o intervalo de tempo entre tentativas de leitura da câmara
+    timeBetweenDecodingAttempts: 50, // 20 FPS em vez de 3 FPS (300ms) para ser quase instantâneo
     onDecodeResult(result) {
       if (fired) return;
       setFired(true);

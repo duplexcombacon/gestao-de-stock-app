@@ -5,8 +5,9 @@ import { useAuth } from './useAuth';
 
 export function useBatches(productId?: string) {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user } = useAuth(); // Obter o utilizador atualmente autenticado
 
+  // Query do React Query para procurar e colocar em cache a lista de lotes
   const query = useQuery({
     queryKey: ['batches', productId],
     queryFn: async () => {
@@ -14,8 +15,9 @@ export function useBatches(productId?: string) {
         .from('batches')
         .select('*, warehouse:warehouses(name)')
         .gt('quantity', 0) // Só queremos lotes com stock
-        .order('expiry_date', { ascending: true });
+        .order('expiry_date', { ascending: true }); // Ordenar por data de expiração, os mais próximos a expirar primeiro
 
+      // Se foi fornecido um productId, aplicar o filtro na query
       if (productId) {
         q = q.eq('product_id', productId);
       }
@@ -27,6 +29,7 @@ export function useBatches(productId?: string) {
     enabled: true,
   });
 
+  // Mutação do React Query para criar um novo lote no Supabase
   const createBatch = useMutation({
     mutationFn: async ({
       product_id,
@@ -76,7 +79,9 @@ export function useBatches(productId?: string) {
 
       return batch;
     },
+    // Executado quando a mutação tem sucesso (lote e movimento criados sem erros)
     onSuccess: (_, variables) => {
+      // Invalidar as queries para forçar um "refetch" e atualizar a interface de utilizador
       queryClient.invalidateQueries({ queryKey: ['batches'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['movements'] });

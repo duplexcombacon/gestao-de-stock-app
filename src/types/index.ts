@@ -1,7 +1,8 @@
-// ── Roles ──
+// ── Roles (Funções dos Utilizadores) ──
 export type UserRole = 'admin' | 'gestor' | 'caixa' | 'auditor';
 
-// ── Entities ──
+// ── Entities (Entidades principais da Base de Dados) ──
+// Representa um utilizador do sistema
 export interface User {
   id: string;
   email: string;
@@ -11,6 +12,7 @@ export interface User {
   created_at: string;
 }
 
+// Representa a definição de um produto (catálogo)
 export interface Product {
   id: string;
   sku: string;
@@ -34,6 +36,7 @@ export interface Warehouse {
   children?: Warehouse[];
 }
 
+// Representa a quantidade de um produto num determinado armazém
 export interface InventoryItem {
   id: string;
   product_id: string;
@@ -56,6 +59,7 @@ export interface Batch {
 
 export type MovementType = 'in' | 'out' | 'transfer';
 
+// Registo de entrada/saída ou transferência de stock
 export interface Movement {
   id: string;
   product_id: string;

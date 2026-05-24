@@ -13,16 +13,16 @@ export const mockUsers: User[] = [
 
 // ── Products ──
 export const mockProducts: Product[] = [
-  { id: 'p1', sku: 'BEB-001', name: 'Água Mineral 1.5L', category: 'Bebidas', unit: 'un', cost_price: 0.35, min_stock: 50, barcode: '5601234567890', created_at: '2025-01-15T10:00:00Z' },
-  { id: 'p2', sku: 'BEB-002', name: 'Sumo de Laranja 1L', category: 'Bebidas', unit: 'un', cost_price: 1.20, min_stock: 30, barcode: '5601234567891', created_at: '2025-01-15T10:05:00Z' },
-  { id: 'p3', sku: 'ALI-001', name: 'Arroz Agulha 1kg', category: 'Alimentação', unit: 'kg', cost_price: 1.50, min_stock: 40, barcode: '5601234567892', created_at: '2025-01-16T08:00:00Z' },
-  { id: 'p4', sku: 'ALI-002', name: 'Massa Esparguete 500g', category: 'Alimentação', unit: 'un', cost_price: 0.85, min_stock: 35, barcode: '5601234567893', created_at: '2025-01-16T08:10:00Z' },
-  { id: 'p5', sku: 'LIM-001', name: 'Detergente Roupa 3L', category: 'Limpeza', unit: 'un', cost_price: 4.50, min_stock: 15, barcode: '5601234567894', created_at: '2025-01-17T09:00:00Z' },
-  { id: 'p6', sku: 'LIM-002', name: 'Lixívia 2L', category: 'Limpeza', unit: 'un', cost_price: 1.80, min_stock: 20, barcode: '5601234567895', created_at: '2025-01-17T09:15:00Z' },
-  { id: 'p7', sku: 'LAC-001', name: 'Leite Meio-Gordo 1L', category: 'Lacticínios', unit: 'un', cost_price: 0.65, min_stock: 60, barcode: '5601234567896', created_at: '2025-01-18T07:00:00Z' },
-  { id: 'p8', sku: 'LAC-002', name: 'Iogurte Natural 4x125g', category: 'Lacticínios', unit: 'un', cost_price: 1.10, min_stock: 25, barcode: '5601234567897', created_at: '2025-01-18T07:30:00Z' },
-  { id: 'p9', sku: 'HIG-001', name: 'Papel Higiénico 12 rolos', category: 'Higiene', unit: 'un', cost_price: 3.20, min_stock: 10, barcode: '5601234567898', created_at: '2025-01-19T11:00:00Z' },
-  { id: 'p10', sku: 'HIG-002', name: 'Sabonete Líquido 500ml', category: 'Higiene', unit: 'un', cost_price: 2.10, min_stock: 12, barcode: '5601234567899', created_at: '2025-01-19T11:20:00Z' },
+  { id: 'p1', sku: 'BEB-001', name: 'Água Mineral 1.5L', category: 'Bebidas', unit: 'un', cost_price: 0.35, sell_price: 0.50, min_stock: 50, barcode: '5601234567890', created_at: '2025-01-15T10:00:00Z' },
+  { id: 'p2', sku: 'BEB-002', name: 'Sumo de Laranja 1L', category: 'Bebidas', unit: 'un', cost_price: 1.20, sell_price: 2.00, min_stock: 30, barcode: '5601234567891', created_at: '2025-01-15T10:05:00Z' },
+  { id: 'p3', sku: 'ALI-001', name: 'Arroz Agulha 1kg', category: 'Alimentação', unit: 'kg', cost_price: 1.50, sell_price: 2.50, min_stock: 40, barcode: '5601234567892', created_at: '2025-01-16T08:00:00Z' },
+  { id: 'p4', sku: 'ALI-002', name: 'Massa Esparguete 500g', category: 'Alimentação', unit: 'un', cost_price: 0.85, sell_price: 1.20, min_stock: 35, barcode: '5601234567893', created_at: '2025-01-16T08:10:00Z' },
+  { id: 'p5', sku: 'LIM-001', name: 'Detergente Roupa 3L', category: 'Limpeza', unit: 'un', cost_price: 4.50, sell_price: 6.00, min_stock: 15, barcode: '5601234567894', created_at: '2025-01-17T09:00:00Z' },
+  { id: 'p6', sku: 'LIM-002', name: 'Lixívia 2L', category: 'Limpeza', unit: 'un', cost_price: 1.80, sell_price: 2.50, min_stock: 20, barcode: '5601234567895', created_at: '2025-01-17T09:15:00Z' },
+  { id: 'p7', sku: 'LAC-001', name: 'Leite Meio-Gordo 1L', category: 'Lacticínios', unit: 'un', cost_price: 0.65, sell_price: 0.90, min_stock: 60, barcode: '5601234567896', created_at: '2025-01-18T07:00:00Z' },
+  { id: 'p8', sku: 'LAC-002', name: 'Iogurte Natural 4x125g', category: 'Lacticínios', unit: 'un', cost_price: 1.10, sell_price: 1.80, min_stock: 25, barcode: '5601234567897', created_at: '2025-01-18T07:30:00Z' },
+  { id: 'p9', sku: 'HIG-001', name: 'Papel Higiénico 12 rolos', category: 'Higiene', unit: 'un', cost_price: 3.20, sell_price: 4.50, min_stock: 10, barcode: '5601234567898', created_at: '2025-01-19T11:00:00Z' },
+  { id: 'p10', sku: 'HIG-002', name: 'Sabonete Líquido 500ml', category: 'Higiene', unit: 'un', cost_price: 2.10, sell_price: 3.00, min_stock: 12, barcode: '5601234567899', created_at: '2025-01-19T11:20:00Z' },
 ];
 
 // ── Warehouses (hierarchy) ──

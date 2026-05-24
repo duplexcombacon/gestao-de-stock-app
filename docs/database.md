@@ -657,7 +657,7 @@ alter publication supabase_realtime add table public.returns;
 
 ## BUCKETS
 
-````sql
+```sql
 
 -- 1. Permitir leitura pública para que as imagens apareçam na app
 create policy "Leitura publica de imagens"
@@ -703,11 +703,11 @@ begin
  return v_role;
 end;
 $$;
-````
+```
 
 ## UPDATE DO LOOP INFINITO INVISIVEL
 
-````sql
+```sql
 
 -- 1. Matar as queries encravadas que estão a bloquear o servidor
 SELECT pg_cancel_backend(pid) FROM pg_stat_activity WHERE state = 'active' AND pid <> pg_backend_pid();
@@ -888,7 +888,7 @@ begin
   return v_movement_id;
 end;
 $$;
-```
+```sql
 
 ## UPDATE SEGURANÇA PARA APAGAR CONTAS NA BD
 
@@ -921,9 +921,10 @@ BEGIN
 
 END;
 $$;
-````
+```s
 
 ## ROTA PARA RESOLVER DEVOLUÇÕES
+```sql
 
 -- ============================================================
 -- FUNÇÃO PARA RESOLVER DEVOLUÇÕES (RPC)
@@ -999,3 +1000,4 @@ GRANT EXECUTE ON FUNCTION public.resolve_return(UUID, TEXT, UUID) TO anon;
 NOTIFY pgrst, 'reload schema';
 NOTIFY pgrst, 'reload config';
 $$
+```

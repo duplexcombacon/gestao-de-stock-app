@@ -11,6 +11,22 @@ Neste projeto adotámos o Supabase como Backend-as-a-Service (BaaS), ou seja, as
 - Funcionário/Caixa: Registo de entradas/saídas, leitura de códigos e consulta de stock local.
 - Auditor: Acesso de leitura para verificar movimentos, histórico e relatórios.
 
+## Organização do Projeto
+
+`components/:` Peças de interface gráfica (UI) reutilizáveis. Tudo o que pode aparecer em vários sítios (como botões, tabelas, a Sidebar, o Header, caixas de diálogo) fica aqui.
+
+`hooks/:` Onde fica a "lógica de negócio" e a ligação à base de dados. Um hook customizado (como o useProducts ou useAuth) serve para separar o código complicado do componente visual. Em vez do componente ter 100 linhas a pedir dados, usa apenas const { products } = useProducts().
+
+`lib/:` Bibliotecas externas e configurações base. É aqui que inicializamos ligações com o mundo exterior. Neste caso, tens o supabase.ts para a base de dados online e o dexie.ts para gerir a base de dados offline (no telemóvel/browser).
+
+`pages/ (ou views):` Representam os ecrãs principais da aplicação que correspondem a um URL específico (ex: A página principal do Dashboard, a página de Login, a lista de Armazéns). Elas juntam os vários components para formar a página final.
+
+`types/:` Ficheiros (normalmente o index.ts) que definem o "formato" (as regras de TypeScript) das tuas variáveis. É o que diz ao editor que um Product tem obrigatoriamente um name e um sell_price, ajudando a evitar erros.
+
+`utils/ (ou helpers):` Funções muito simples e pequeninas que resolvem problemas genéricos, como formatar uma data para português, converter dinheiro ou calcular percentagens.
+
+`data/:` Dados estáticos, normalmente usados para simulações (mock.ts) antes da base de dados real estar ligada.
+
 ## Funcionalidades
 
 - Catálogo de Produtos: Criação, edição e listagem (SKU, nome, descrição, categoria).

@@ -4,12 +4,15 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from './useAuth';
 
 export function useNotifications() {
-  const { user } = useAuth();
+  const { user } = useAuth(); // Obter dados do utilizador logado
+  // Ref para guardar os IDs dos lotes já notificados e evitar spam durante a mesma sessão
   const notifiedBatches = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    // Se o utilizador não estiver logado, não há necessidade de verificar notificações
     if (!user) return;
 
+    // Função assíncrona para procurar lotes prestes a expirar
     const checkExpirations = async () => {
       try {
         const { data, error } = await supabase
@@ -52,11 +55,12 @@ export function useNotifications() {
       }
     };
 
-    checkExpirations();
+    checkExpirations(); // Executar a verificação na montagem (primeira renderização)
 
     // Opcional: configurar um temporizador para verificar periodicamente (ex: a cada hora)
     const interval = setInterval(checkExpirations, 1000 * 60 * 60);
 
+    // Função de limpeza executada quando o componente que usa o hook é desmontado
     return () => clearInterval(interval);
   }, [user]);
 }

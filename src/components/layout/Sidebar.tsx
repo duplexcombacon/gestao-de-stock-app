@@ -6,6 +6,7 @@ import {
 import { cn } from '@/utils/formatters';
 import { useAuth } from '@/hooks/useAuth';
 
+// Definição dos links de navegação e os papéis (roles) com permissão para os visualizar
 const links = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'gestor', 'auditor'] },
   { to: '/produtos', icon: Package, label: 'Produtos', roles: ['admin', 'gestor', 'caixa', 'auditor'] },
@@ -17,10 +18,10 @@ const links = [
 ];
 
 export function Sidebar() {
-  const { user, signOut } = useAuth();
+  const { user, signOut } = useAuth(); // Usar o hook de autenticação para as informações do user e a ação de logout
   const navigate = useNavigate();
 
-  // Helper to get initials (e.g. "João Caixa" -> "JC", or "admin@admin.com" -> "AA")
+  // Helper para obter as iniciais (ex. "João Caixa" -> "JC", ou "admin@admin.com" -> "AA")
   const getInitials = (name: string) => {
     if (!name) return '??';
     const parts = name.trim().split(/\s+/);
@@ -40,9 +41,10 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Nav */}
+      {/* Nav: Lista de links da barra lateral (menu) */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {links
+          // Mostrar o link apenas se não tiver user (precaução) ou se o role atual incluir as permissões necessárias
           .filter(link => !user || link.roles.includes(user.role))
           .map(({ to, icon: Icon, label }) => (
             <NavLink

@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { db } from '@/lib/dexie';
 import type { Warehouse, InventoryItem, Product } from '@/types';
 
-// Extend Warehouse with metrics
+// Estende o modelo base de 'Warehouse' para incluir métricas que vamos calcular no ecrã principal (dashboard/listagem)
 export interface WarehouseWithMetrics extends Warehouse {
   children?: WarehouseWithMetrics[];
   metrics: {
@@ -13,8 +13,9 @@ export interface WarehouseWithMetrics extends Warehouse {
   };
 }
 
-// ── Supabase-ready functions ──
+// ── Funções auxiliares (ligação ao Supabase e base de dados offline) ──
 
+// Tenta procurar um armazém pelo seu QR Code (útil quando usamos a câmara)
 export async function findWarehouseByQrCode(qrCode: string): Promise<Warehouse | null> {
   if (!navigator.onLine) {
     const cached = await db.cachedWarehouses.where('qr_code').equals(qrCode).first();
