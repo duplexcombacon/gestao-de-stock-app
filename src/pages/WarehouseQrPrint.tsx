@@ -2,7 +2,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Printer, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { getWarehouseById } from '@/data/mock';
+import { useWarehouseDetail } from '@/hooks/useWarehouses';
+import QRCode from 'react-qr-code';
 
 const typeLabels = {
   warehouse: 'Armazém',
@@ -13,7 +14,11 @@ const typeLabels = {
 export default function WarehouseQrPrint() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const warehouse = getWarehouseById(id || '');
+  const { warehouse, isLoading } = useWarehouseDetail(id);
+
+  if (isLoading) {
+    return <div className="flex justify-center py-20 text-text-muted">A carregar detalhes...</div>;
+  }
 
   if (!warehouse) {
     return (
@@ -52,7 +57,9 @@ export default function WarehouseQrPrint() {
 
             <div className="mx-auto my-8 size-56 border-4 border-black rounded-xl flex items-center justify-center p-5">
               <div className="text-center">
-                <QrCode size={96} className="mx-auto text-black" />
+                <div className="bg-white p-2 inline-block rounded-xl">
+                  <QRCode value={qrValue} size={140} level="H" />
+                </div>
                 <p className="font-mono text-xs break-all mt-4">{qrValue}</p>
               </div>
             </div>
