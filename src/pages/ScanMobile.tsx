@@ -56,7 +56,7 @@ const LOCATION_TYPE_LABEL: Record<string, string> = {
 };
 
 const EMPTY_FORM: NewProductFormData = {
-  barcode: '', name: '', sku: '', category: 'Bebidas', unit: 'un', cost_price: 0, min_stock: 0,
+  barcode: '', name: '', sku: '', category: 'Bebidas', unit: 'un', cost_price: 0, sell_price: 0, min_stock: 0,
 };
 
 // Removed CameraScanner, now imported
@@ -553,9 +553,9 @@ export default function ScanMobile() {
               value={newProductForm.unit}
               onChange={e => setNewProductForm(f => ({ ...f, unit: e.target.value }))}
             />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Input
-                label="Preço custo (€)"
+                label="Custo (€)"
                 type="number"
                 min="0"
                 step="0.01"
@@ -566,7 +566,18 @@ export default function ScanMobile() {
                 }
               />
               <Input
-                label="Stock mínimo"
+                label="Venda (€)"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={newProductForm.sell_price || ''}
+                onChange={e =>
+                  setNewProductForm(f => ({ ...f, sell_price: parseFloat(e.target.value) || 0 }))
+                }
+              />
+              <Input
+                label="Mínimo"
                 type="number"
                 min="0"
                 step="1"
