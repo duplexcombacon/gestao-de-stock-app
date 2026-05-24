@@ -24,7 +24,6 @@ export default function WarehouseCreate() {
     parent_id: initialParent,
     type: parent?.type === 'warehouse' || parent?.type === 'zone' || parent?.type === 'store' ? 'corridor' : parent?.type === 'corridor' ? 'shelf' : 'warehouse' as WarehouseType,
     qr_code: `QR-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
-    description: '',
   });
 
   const parentOptions = useMemo(() => {
@@ -69,7 +68,6 @@ export default function WarehouseCreate() {
         type: form.type,
         parent_id: form.parent_id || null,
         qr_code: form.qr_code,
-        description: form.description,
       });
       toast.success('Localização criada com sucesso!');
       navigate('/armazens');
@@ -115,9 +113,6 @@ export default function WarehouseCreate() {
             <Button className="mt-2" variant="secondary" size="sm" icon={<QrCode size={14} />} onClick={() => update('qr_code', `QR-${crypto.randomUUID().slice(0, 8).toUpperCase()}`)}>
               Gerar novo código
             </Button>
-          </div>
-          <div className="sm:col-span-2">
-            <Input label="Descrição" placeholder="Opcional" value={form.description} onChange={e => update('description', e.target.value)} />
           </div>
         </div>
 
