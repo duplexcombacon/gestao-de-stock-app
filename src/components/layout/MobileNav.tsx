@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Package, ScanBarcode, Warehouse, ArrowLeftRight } from 'lucide-react';
+import { LayoutDashboard, Package, ScanBarcode, Warehouse, ArrowLeftRight, UserCheck } from 'lucide-react';
 import { cn } from '@/utils/formatters';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -9,6 +9,7 @@ const tabs = [
   { to: '/scan', icon: ScanBarcode, label: 'Scan', roles: ['admin', 'gestor', 'caixa'] },
   { to: '/armazens', icon: Warehouse, label: 'Armazéns', roles: ['admin', 'gestor', 'caixa', 'auditor'] },
   { to: '/movimentos', icon: ArrowLeftRight, label: 'Movimentos', roles: ['admin', 'gestor', 'auditor'] },
+  { to: '/operadores/presencas', icon: UserCheck, label: 'Presenças', roles: ['admin', 'gestor'] },
 ];
 
 export function MobileNav() {

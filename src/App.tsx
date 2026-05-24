@@ -23,12 +23,14 @@ import ScanMobile from '@/pages/ScanMobile';
 import WarehousesList from '@/pages/WarehousesList';
 import WarehouseDetail from '@/pages/WarehouseDetail';
 import WarehouseCreate from '@/pages/WarehouseCreate';
+import WarehouseEdit from '@/pages/WarehouseEdit';
 import WarehouseQrPrint from '@/pages/WarehouseQrPrint';
 import MovementLog from '@/pages/MovementLog';
 import Returns from '@/pages/Returns';
 import ReturnCreate from '@/pages/ReturnCreate';
 import AdminUsers from '@/pages/AdminUsers';
 import Profile from '@/pages/Profile';
+import OperatorCheckins from '@/pages/OperatorCheckins';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +49,7 @@ const pageTitles: Record<string, string> = {
   '/devolucoes': 'Devoluções',
   '/devolucoes/nova': 'Nova Devolução',
   '/admin/utilizadores': 'Gestão de Utilizadores',
+  '/operadores/presencas': 'Presenças de Operadores',
   '/perfil': 'O Meu Perfil',
 };
 
@@ -149,6 +152,7 @@ export default function App() {
               <Route path="/armazens" element={<WarehousesList />} />
               <Route path="/armazens/novo" element={<RoleGuard roles={['admin', 'gestor']}><WarehouseCreate /></RoleGuard>} />
               <Route path="/armazens/:id" element={<WarehouseDetail />} />
+              <Route path="/armazens/:id/editar" element={<RoleGuard roles={['admin', 'gestor']}><WarehouseEdit /></RoleGuard>} />
               <Route path="/armazens/:id/qr" element={<WarehouseQrPrint />} />
               <Route path="/movimentos" element={<MovementLog />} />
               <Route path="/devolucoes" element={<Returns />} />
@@ -162,6 +166,16 @@ export default function App() {
                     <AdminUsers />
                   </RoleGuard>
                 } 
+              />
+
+              {/* Admin e gestor podem ver presenças de operadores */}
+              <Route
+                path="/operadores/presencas"
+                element={
+                  <RoleGuard roles={['admin', 'gestor']}>
+                    <OperatorCheckins />
+                  </RoleGuard>
+                }
               />
               
               {/* Perfil de Utilizador (Todos podem aceder) */}

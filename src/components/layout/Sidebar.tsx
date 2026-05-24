@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Package, ScanBarcode, Warehouse,
-  ArrowLeftRight, RotateCcw, Users, LogOut,
+  ArrowLeftRight, RotateCcw, Users, LogOut, UserCheck,
 } from 'lucide-react';
 import { cn } from '@/utils/formatters';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,6 +14,7 @@ const links = [
   { to: '/armazens', icon: Warehouse, label: 'Armazéns', roles: ['admin', 'gestor', 'caixa', 'auditor'] },
   { to: '/movimentos', icon: ArrowLeftRight, label: 'Movimentos', roles: ['admin', 'gestor', 'auditor'] },
   { to: '/devolucoes', icon: RotateCcw, label: 'Devoluções', roles: ['admin', 'gestor'] },
+  { to: '/operadores/presencas', icon: UserCheck, label: 'Presenças', roles: ['admin', 'gestor'] },
   { to: '/admin/utilizadores', icon: Users, label: 'Utilizadores', roles: ['admin'] },
 ];
 

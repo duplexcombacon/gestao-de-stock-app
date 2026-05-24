@@ -30,7 +30,7 @@ export interface Warehouse {
   id: string;
   name: string;
   parent_id: string | null;
-  type: 'warehouse' | 'corridor' | 'shelf';
+  type: 'warehouse' | 'storage' | 'corridor' | 'shelf' | 'zone' | 'store';
   qr_code: string | null;
   created_at: string;
   children?: Warehouse[];
@@ -132,4 +132,16 @@ export interface Alert {
   value: number;
   threshold: number;
   created_at: string;
+}
+
+// ── Operador Check-ins ──
+// Registo de presença de um operador numa localização (leitura de QR)
+export interface OperatorCheckin {
+  id: string;
+  user_id: string;
+  warehouse_id: string;
+  checked_in_at: string;
+  checked_out_at?: string | null;
+  user?: User;
+  warehouse?: Warehouse;
 }

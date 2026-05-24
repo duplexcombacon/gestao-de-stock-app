@@ -88,13 +88,15 @@ function WarehouseNode({ warehouse, depth = 0, searchQuery = '', forceExpand = f
 
         {/* Actions */}
         <div className="hidden group-hover:flex items-center gap-1">
-          <button
-            onClick={(e) => { e.stopPropagation(); navigate(`/armazens/${warehouse.id}/qr`); }}
-            className="p-1 rounded text-text-muted hover:text-accent transition-colors cursor-pointer"
-            title="Gerar QR Code"
-          >
-            <QrCode size={14} />
-          </button>
+          {!['corridor', 'shelf'].includes(warehouse.type) && (
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/armazens/${warehouse.id}/qr`); }}
+              className="p-1 rounded text-text-muted hover:text-accent transition-colors cursor-pointer"
+              title="Gerar QR Code"
+            >
+              <QrCode size={14} />
+            </button>
+          )}
           {warehouse.type !== 'shelf' && (
             <button
               onClick={(e) => { e.stopPropagation(); navigate(`/armazens/novo?parent=${warehouse.id}`); }}

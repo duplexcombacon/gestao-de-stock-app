@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/Badge';
 import { findWarehouseByQrCode, getInventoryByWarehouse } from '@/hooks/useWarehouses';
 import { findProductByBarcode, createProductFromBarcode, createMovement } from '@/hooks/useProducts';
 import { useNetworkState } from '@/hooks/useNetworkState';
+import { useAuth } from '@/hooks/useAuth';
+import { toggleCheckin } from '@/hooks/useCheckins';
 import { CameraScanner } from '@/components/scanner/CameraScanner';
 import { cn } from '@/utils/formatters';
 import type { Warehouse, Product, InventoryItem, NewProductFormData, ScanMode } from '@/types';
@@ -101,6 +103,7 @@ function QtyStepper({ value, onChange, min = 1 }: QtyStepperProps) {
 
 export default function ScanMobile() {
   const { isOnline } = useNetworkState();
+  const { user } = useAuth();
   // ── Location state ──
   const [activeLocation, setActiveLocation] = useState<Warehouse | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItemWithProduct[]>([]);
@@ -162,7 +165,24 @@ export default function ScanMobile() {
         setInventoryItems(items);
         setScannedProduct(null);
         setUnknownBarcode(null);
-        showFeedback('success', `Localização "${warehouse.name}" ativada`);
+        
+        // Registar presença do operador nesta localização (toggle in/out)
+        if (user?.id) {
+          const result = await toggleCheckin(user.id, warehouse.id);
+          if (result) {
+            if (result.action === 'in') {
+              showFeedback('success', `Entrada registada em "${result.warehouseName}"`);
+            } else {
+              showFeedback('success', `Saída registada de "${result.warehouseName}"`);
+              clearLocation();
+              return;
+            }
+          } else {
+             showFeedback('success', `Localização "${warehouse.name}" ativada`);
+          }
+        } else {
+          showFeedback('success', `Localização "${warehouse.name}" ativada`);
+        }
       } else {
         showFeedback('error', `Localização não encontrada para: "${text}"`);
       }
