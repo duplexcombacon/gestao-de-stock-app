@@ -63,11 +63,48 @@ export async function syncPendingOperations() {
   }
 }
 
+export async function syncMasterData() {
+  if (!navigator.onLine) return;
+
+  try {
+    console.log('[Sync Master] A descarregar dados para modo offline...');
+    
+    const [productsRes, warehousesRes, inventoryRes] = await Promise.all([
+      supabase.from('products').select('id, sku, name, barcode, min_stock, cost_price, category, unit').eq('active', true),
+      supabase.from('warehouses').select('id, name, type, parent_id, qr_code'),
+      supabase.from('inventory').select('product_id, warehouse_id, quantity')
+    ]);
+
+    if (productsRes.data) {
+      await db.cachedProducts.clear();
+      await db.cachedProducts.bulkAdd(productsRes.data);
+    }
+    
+    if (warehousesRes.data) {
+      await db.cachedWarehouses.clear();
+      await db.cachedWarehouses.bulkAdd(warehousesRes.data);
+    }
+    
+    if (inventoryRes.data) {
+      await db.cachedInventory.clear();
+      await db.cachedInventory.bulkAdd(inventoryRes.data);
+    }
+
+    console.log('[Sync Master] Dados guardados localmente com sucesso.');
+  } catch (err) {
+    console.error('[Sync Master] Erro ao sincronizar dados offline:', err);
+  }
+}
+
 // Iniciar sync automaticamente ao voltar a ter internet
 window.addEventListener('online', () => {
   console.log('[Sync] Conexão restaurada. A iniciar sync...');
   syncPendingOperations();
+  syncMasterData();
 });
 
 // Expor função para forçar sincronização manual caso seja necessário
-export const forceSync = syncPendingOperations;
+export const forceSync = async () => {
+  await syncPendingOperations();
+  await syncMasterData();
+};

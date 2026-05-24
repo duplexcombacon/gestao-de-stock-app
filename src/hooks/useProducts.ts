@@ -1,10 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/dexie';
 import type { Product, NewProductFormData } from '@/types';
 
 // ── Supabase-ready functions ──
 
 export async function findProductByBarcode(barcode: string): Promise<Product | null> {
+  if (!navigator.onLine) {
+    const cached = await db.cachedProducts.where('barcode').equals(barcode).first();
+    return cached ? (cached as unknown as Product) : null;
+  }
+
   const { data, error } = await supabase
     .from('products')
     .select('*')
@@ -23,6 +29,7 @@ export async function createProductFromBarcode(data: NewProductFormData): Promis
       category: data.category,
       unit: data.unit,
       cost_price: data.cost_price,
+      sell_price: data.sell_price,
       min_stock: data.min_stock,
       barcode: data.barcode,
     })
@@ -40,8 +47,34 @@ export async function createMovement(
   quantity: number,
   notes?: string,
 ): Promise<void> {
+  // If offline, queue the operation
+  if (!navigator.onLine) {
+    console.log('[Offline] A guardar movimento pendente...');
+    // Try to get user from local profile if available, or just use a placeholder
+    // In a real app we'd cache the user ID in localStorage during login
+    const userId = localStorage.getItem('stockflow_user_id') || 'offline-user';
+    
+    await db.pendingOps.add({
+      type: 'movement',
+      status: 'pending',
+      payload: {
+        p_product_id: productId,
+        p_warehouse_id: warehouseId,
+        p_type: type,
+        p_quantity: quantity,
+        p_user_id: userId,
+        p_notes: notes || null
+      },
+      created_at: new Date().toISOString()
+    });
+    return;
+  }
+
   const { data: userData } = await supabase.auth.getUser();
   if (!userData?.user?.id) throw new Error("Utilizador não autenticado");
+
+  // Save ID for offline use
+  localStorage.setItem('stockflow_user_id', userData.user.id);
 
   const { error } = await supabase.rpc('create_movement', {
     p_product_id: productId,

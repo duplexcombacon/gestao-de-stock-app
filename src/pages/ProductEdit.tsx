@@ -21,6 +21,7 @@ export default function ProductEdit() {
     category: product?.category || categoryOptions[0],
     unit: product?.unit || 'un',
     cost_price: String(product?.cost_price ?? ''),
+    sell_price: String(product?.sell_price ?? ''),
     min_stock: String(product?.min_stock ?? ''),
     barcode: product?.barcode || '',
   });
@@ -35,6 +36,7 @@ export default function ProductEdit() {
     if (!form.name.trim()) nextErrors.name = 'Nome é obrigatório';
     if (!form.sku.trim()) nextErrors.sku = 'SKU é obrigatório';
     if (Number.isNaN(Number(form.cost_price)) || Number(form.cost_price) < 0) nextErrors.cost_price = 'Preço inválido';
+    if (Number.isNaN(Number(form.sell_price)) || Number(form.sell_price) < 0) nextErrors.sell_price = 'Preço inválido';
     if (Number.isNaN(Number(form.min_stock)) || Number(form.min_stock) < 0) nextErrors.min_stock = 'Stock mínimo inválido';
 
     if (Object.keys(nextErrors).length) {
@@ -99,6 +101,7 @@ export default function ProductEdit() {
             ]}
           />
           <Input label="Preço de Custo (€)" type="number" step="0.01" value={form.cost_price} onChange={e => update('cost_price', e.target.value)} error={errors.cost_price} />
+          <Input label="Preço de Venda (€)" type="number" step="0.01" value={form.sell_price} onChange={e => update('sell_price', e.target.value)} error={errors.sell_price} />
           <Input label="Stock Mínimo" type="number" value={form.min_stock} onChange={e => update('min_stock', e.target.value)} error={errors.min_stock} />
           <div className="sm:col-span-2">
             <Input label="Código de Barras" value={form.barcode} onChange={e => update('barcode', e.target.value)} />

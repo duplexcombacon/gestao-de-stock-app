@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Pencil, Ban, Search, UserPlus } from 'lucide-react';
+import { Shield, Pencil, Ban, Search, UserPlus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -35,6 +35,9 @@ export default function AdminUsers() {
   const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', role: 'caixa' as UserRole });
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [deleteEmailConfirm, setDeleteEmailConfirm] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -129,6 +132,23 @@ export default function AdminUsers() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!userToDelete || deleteEmailConfirm !== userToDelete.email) return;
+    setDeleting(true);
+    
+    // Call the custom RPC function to delete from auth.users
+    const { error } = await supabase.rpc('delete_user', { p_user_id: userToDelete.id });
+    
+    if (!error) {
+      setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+      setUserToDelete(null);
+      setDeleteEmailConfirm('');
+    } else {
+      alert('Erro ao apagar utilizador: ' + error.message);
+    }
+    setDeleting(false);
+  };
+
   const columns: Column<User>[] = [
     {
       key: 'name',
@@ -187,11 +207,18 @@ export default function AdminUsers() {
             className={`p-1.5 rounded-md transition-colors cursor-pointer ${
               u.active === false 
                 ? 'text-success hover:bg-success-muted' 
-                : 'text-text-muted hover:text-danger hover:bg-danger-muted'
+                : 'text-text-muted hover:text-warning hover:bg-warning/15'
             }`}
             title={u.active === false ? "Ativar conta" : "Desativar conta"}
           >
             {u.active === false ? <Shield size={14} /> : <Ban size={14} />}
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setUserToDelete(u); setDeleteEmailConfirm(''); }}
+            className="p-1.5 rounded-md text-text-muted hover:text-danger hover:bg-danger/15 transition-colors cursor-pointer"
+            title="Apagar conta permanentemente"
+          >
+            <Trash2 size={14} />
           </button>
         </div>
       ),
@@ -314,6 +341,44 @@ export default function AdminUsers() {
               {creating ? 'A criar...' : 'Criar Utilizador'}
             </Button>
             <Button variant="ghost" onClick={() => setShowCreateModal(false)}>Cancelar</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete User Modal */}
+      <Modal
+        open={!!userToDelete}
+        onClose={() => { setUserToDelete(null); setDeleteEmailConfirm(''); }}
+        title="Apagar Conta Permanentemente"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="bg-danger/15 text-danger p-3 rounded-lg text-sm">
+            <p className="font-bold mb-1">Aviso Crítico!</p>
+            <p>Esta ação é irreversível. O utilizador <strong>{userToDelete?.name}</strong> será permanentemente removido do sistema.</p>
+          </div>
+          
+          <div>
+            <p className="text-sm text-text-secondary mb-2">
+              Para confirmar, escreva o email da conta (<strong>{userToDelete?.email}</strong>):
+            </p>
+            <Input 
+              placeholder={userToDelete?.email} 
+              value={deleteEmailConfirm} 
+              onChange={e => setDeleteEmailConfirm(e.target.value)} 
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button 
+              variant="danger" 
+              onClick={handleDelete} 
+              className="flex-1" 
+              disabled={deleting || deleteEmailConfirm !== userToDelete?.email}
+            >
+              {deleting ? 'A apagar...' : 'Apagar Conta'}
+            </Button>
+            <Button variant="ghost" onClick={() => { setUserToDelete(null); setDeleteEmailConfirm(''); }}>Cancelar</Button>
           </div>
         </div>
       </Modal>

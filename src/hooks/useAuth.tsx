@@ -25,14 +25,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = useCallback(async (userId: string, email: string): Promise<User | null> => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name, email, role, created_at')
+      .select('id, name, email, role, active, created_at')
       .eq('id', userId)
       .single();
 
     if (error || !data) {
       console.error('🔴 Erro ao ir buscar o perfil à DB:', error);
       // Fallback: use only auth data, role unknown
-      return { id: userId, email, name: email, role: 'caixa', created_at: new Date().toISOString() };
+      return { id: userId, email, name: email, role: 'caixa', active: true, created_at: new Date().toISOString() };
+    }
+
+    if (data.active === false) {
+      console.warn('⚠️ Conta desativada pelo administrador. A terminar sessão...');
+      await supabase.auth.signOut();
+      return null;
     }
 
     return {
@@ -40,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: data.email ?? email,
       name: data.name,
       role: data.role as UserRole,
+      active: data.active,
       created_at: data.created_at,
     };
   }, []);

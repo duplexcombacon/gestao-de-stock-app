@@ -888,4 +888,37 @@ begin
   return v_movement_id;
 end;
 $$;
+```
+
+## UPDATE SEGURANÇA PARA APAGAR CONTAS NA BD
+
+-- ============================================================
+-- FUNÇÃO PARA APAGAR UTILIZADOR (RPC)
+-- ============================================================
+-- Esta função permite que um Admin apague um utilizador permanentemente.
+-- Ao apagar de auth.users, todas as referências (como a tabela profiles)
+-- serão apagadas automaticamente por causa do ON DELETE CASCADE.
+
+CREATE OR REPLACE FUNCTION public.delete_user(p_user_id UUID)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- 1. Verificar se quem está a executar a função é um Admin
+  IF (SELECT role FROM public.profiles WHERE id = auth.uid()) != 'admin' THEN
+    RAISE EXCEPTION 'Acesso negado. Apenas administradores podem apagar contas.';
+  END IF;
+
+  -- 2. Não permitir que o admin se apague a si próprio (Prevenção de desastre)
+  IF p_user_id = auth.uid() THEN
+    RAISE EXCEPTION 'Não podes apagar a tua própria conta de Administrador!';
+  END IF;
+
+  -- 3. Apagar o utilizador da tabela de autenticação base (Isto propaga para profiles)
+  DELETE FROM auth.users WHERE id = p_user_id;
+
+END;
+$$;
 ````

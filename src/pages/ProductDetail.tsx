@@ -80,7 +80,13 @@ export default function ProductDetail() {
             <div className="flex items-center gap-3 mt-2 text-sm text-text-secondary">
               <span>{product.category}</span>
               <span className="text-text-muted">·</span>
-              <span>{formatCurrency(product.cost_price)} / {product.unit}</span>
+              <span>Custo: {formatCurrency(product.cost_price)} / {product.unit}</span>
+              {product.sell_price > 0 && (
+                <>
+                  <span className="text-text-muted">·</span>
+                  <span>Venda: {formatCurrency(product.sell_price)} / {product.unit}</span>
+                </>
+              )}
             </div>
           </div>
           <div className="text-right space-y-3">

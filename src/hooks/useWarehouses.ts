@@ -1,10 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/dexie';
 import type { Warehouse, InventoryItem, Product } from '@/types';
 
 // ── Supabase-ready functions ──
 
 export async function findWarehouseByQrCode(qrCode: string): Promise<Warehouse | null> {
+  if (!navigator.onLine) {
+    const cached = await db.cachedWarehouses.where('qr_code').equals(qrCode).first();
+    return cached ? (cached as unknown as Warehouse) : null;
+  }
+
   const { data, error } = await supabase
     .from('warehouses')
     .select('*')
@@ -17,6 +23,26 @@ export async function findWarehouseByQrCode(qrCode: string): Promise<Warehouse |
 export async function getInventoryByWarehouse(
   warehouseId: string,
 ): Promise<(InventoryItem & { product: Product })[]> {
+  if (!navigator.onLine) {
+    const cachedInv = await db.cachedInventory.where('warehouse_id').equals(warehouseId).toArray();
+    const result = [];
+    for (const inv of cachedInv) {
+      const product = await db.cachedProducts.get(inv.product_id);
+      if (product) {
+        result.push({
+          id: `${inv.product_id}_${inv.warehouse_id}`,
+          product_id: inv.product_id,
+          warehouse_id: inv.warehouse_id,
+          quantity: inv.quantity,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          product: product as unknown as Product
+        });
+      }
+    }
+    return result;
+  }
+
   const { data, error } = await supabase
     .from('inventory')
     .select('*, product:products(*)')
@@ -27,7 +53,7 @@ export async function getInventoryByWarehouse(
   // Assuming a 1-to-1 or single mapping where product is an object.
   const mapped = data.map((d: any) => ({
     ...d,
-    product: d.products // handle naming differences
+    product: d.products || d.product // handle naming differences
   }));
   return mapped as unknown as (InventoryItem & { product: Product })[];
 }

@@ -9,6 +9,8 @@ import { Header } from '@/components/layout/Header';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { Toaster } from 'sonner';
 import { useNotifications } from '@/hooks/useNotifications';
+import { forceSync } from '@/lib/sync';
+import { useEffect } from 'react';
 
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
@@ -52,6 +54,10 @@ function AppLayout() {
   const location = useLocation();
   const path = location.pathname;
   useNotifications();
+
+  useEffect(() => {
+    forceSync();
+  }, []);
 
   let title = pageTitles[path] || '';
   if (!title) {

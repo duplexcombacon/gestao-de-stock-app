@@ -18,6 +18,7 @@ export interface Product {
   category: string;
   unit: string;
   cost_price: number;
+  sell_price: number;
   min_stock: number;
   barcode: string | null;
   created_at: string;
@@ -105,6 +106,7 @@ export interface NewProductFormData {
   category: string;
   unit: string;
   cost_price: number;
+  sell_price: number;
   min_stock: number;
 }
 

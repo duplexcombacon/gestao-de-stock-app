@@ -1,5 +1,7 @@
 # Arquitetura e Definição de Produto - Gestão de Stock
 
+Para executar tem que se usar https:localhost:5173 (o HTTPS é obrigatório devido a alterações do VITE)
+
 Neste projeto adotámos o Supabase como Backend-as-a-Service (BaaS), ou seja, as chamadas à API não feitas através de métodos tradicionais como Node.js, mas sim diretamente na Supabase.
 
 ## Papéis de Utilizador
@@ -87,3 +89,8 @@ Neste projeto adotámos o Supabase como Backend-as-a-Service (BaaS), ou seja, as
 ---
 
 Se quiser, aplico isto no ficheiro e adiciono um exemplo de `stack` em tabelas com escolhas recomendadas (MVP vs Escala) e um esboço de `docker-compose`/workflow de CI.
+
+## Modo Offline
+
+O modo offline permite o uso da app mesmo sem ligação wifi, isto acontece porque nem sempre nos armazéns o wi-fi é estável. Neste modo o registo de códigos de barras está desligado, pois não é seguro para a integridade dos dados fazer isso offline e depois enviar para o servidor.
+Ficaram disponivéis todas as operações em qualquer produto já existente, como adicionar stock, remover stock, etc...

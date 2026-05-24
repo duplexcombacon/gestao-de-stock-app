@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { Bell, Wifi, WifiOff, AlertTriangle, Clock, TrendingDown } from 'lucide-react';
 import { useAlerts } from '@/hooks/useAlerts';
+import { useNetworkState } from '@/hooks/useNetworkState';
 import { Badge } from '@/components/ui/Badge';
 import { useNavigate } from 'react-router-dom';
 
 export function Header({ title }: { title: string }) {
-  const [isOnline] = useState(true); // will come from sync hook later
+  const { isOnline } = useNetworkState();
   const { alerts, count: alertCount } = useAlerts();
   const [showNotifications, setShowNotifications] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);

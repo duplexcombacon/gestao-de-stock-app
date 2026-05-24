@@ -1,21 +1,23 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, ScanBarcode } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { categories } from '@/data/mock';
 import { useProducts } from '@/hooks/useProducts';
+import { CameraScanner } from '@/components/scanner/CameraScanner';
 
 export default function ProductCreate() {
   const navigate = useNavigate();
   const { createProduct } = useProducts();
   const [form, setForm] = useState({
     name: '', sku: '', category: categories[0], unit: 'un',
-    cost_price: '', min_stock: '', barcode: '',
+    cost_price: '', sell_price: '', min_stock: '', barcode: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   const update = (field: string, value: string) => {
     setForm(f => ({ ...f, [field]: value }));
@@ -27,6 +29,7 @@ export default function ProductCreate() {
     if (!form.name.trim()) newErrors.name = 'Nome é obrigatório';
     if (!form.sku.trim()) newErrors.sku = 'SKU é obrigatório';
     if (!form.cost_price || Number(form.cost_price) <= 0) newErrors.cost_price = 'Preço deve ser positivo';
+    if (!form.sell_price || Number(form.sell_price) <= 0) newErrors.sell_price = 'Preço deve ser positivo';
     if (!form.min_stock || Number(form.min_stock) < 0) newErrors.min_stock = 'Stock mínimo inválido';
 
     if (Object.keys(newErrors).length > 0) {
@@ -43,6 +46,7 @@ export default function ProductCreate() {
           category: form.category,
           unit: form.unit,
           cost_price: Number(form.cost_price),
+          sell_price: Number(form.sell_price),
           min_stock: Number(form.min_stock),
           barcode: form.barcode.trim() || undefined,
         });
@@ -90,10 +94,26 @@ export default function ProductCreate() {
             onChange={e => update('unit', e.target.value)}
           />
           <Input label="Preço de Custo (€)" type="number" step="0.01" placeholder="0.00" value={form.cost_price} onChange={e => update('cost_price', e.target.value)} error={errors.cost_price} />
+          <Input label="Preço de Venda (€)" type="number" step="0.01" placeholder="0.00" value={form.sell_price} onChange={e => update('sell_price', e.target.value)} error={errors.sell_price} />
           <Input label="Stock Mínimo" type="number" placeholder="0" value={form.min_stock} onChange={e => update('min_stock', e.target.value)} error={errors.min_stock} />
           <div className="sm:col-span-2">
-            <Input label="Código de Barras" placeholder="Ler via câmara ou inserir manualmente" value={form.barcode} onChange={e => update('barcode', e.target.value)} />
-            <p className="text-xs text-text-muted mt-1">Podes ler o código com o scanner na página /scan</p>
+            <label className="block text-sm font-medium text-text-secondary mb-1.5">Código de Barras</label>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Input 
+                  placeholder="Inserir manualmente..." 
+                  value={form.barcode} 
+                  onChange={e => update('barcode', e.target.value)} 
+                />
+              </div>
+              <Button
+                variant="secondary"
+                icon={<ScanBarcode size={18} />}
+                onClick={() => setIsCameraOpen(true)}
+              >
+                Ler com Câmara
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -104,6 +124,17 @@ export default function ProductCreate() {
           <Button variant="ghost" onClick={() => navigate(-1)}>Cancelar</Button>
         </div>
       </div>
+
+      {isCameraOpen && (
+        <CameraScanner
+          mode="product"
+          onDecode={(text) => {
+            update('barcode', text);
+            setIsCameraOpen(false);
+          }}
+          onClose={() => setIsCameraOpen(false)}
+        />
+      )}
     </div>
   );
 }
