@@ -34,6 +34,7 @@ Neste projeto adotámos o Supabase como Backend-as-a-Service (BaaS), ou seja, as
 - Leitor de Código de Barras: Adicionar/remover produtos e registar códigos via câmara.
 - Gestão de Lotes e Validades: Rastreio de lotes e alertas de validade (FEFO).
 - Gestão de Devoluções: Registar produtos devolvidos e definir destino.
+- Pesquisar produto por código de barras
 - Hierarquia de Armazéns: Armazém principal e sub-armazéns/prateleiras.
 - Navegação por QR Code: Scan de QR code do sub-armazém para listar os produtos associados. Na primeira vez que é feita a leitura a base de dados tem de ler o codigo de barras junto com o nome, e um botao guardar, ao guradar ela fica nova linha na base de dados e a proxima ja la fica.
 - Registo de Movimentos: Histórico de quem moveu o quê e quando.
