@@ -3,6 +3,16 @@ import { supabase } from '@/lib/supabase';
 import { db } from '@/lib/dexie';
 import type { Warehouse, InventoryItem, Product } from '@/types';
 
+// Extend Warehouse with metrics
+export interface WarehouseWithMetrics extends Warehouse {
+  children?: WarehouseWithMetrics[];
+  metrics: {
+    totalItems: number;
+    uniqueSkus: number;
+    lowStockAlerts: number;
+  };
+}
+
 // ── Supabase-ready functions ──
 
 export async function findWarehouseByQrCode(qrCode: string): Promise<Warehouse | null> {
@@ -49,28 +59,49 @@ export async function getInventoryByWarehouse(
     .eq('warehouse_id', warehouseId);
 
   if (error || !data) return [];
-  // PostgREST typically returns joined data wrapped in the key name (or an array).
-  // Assuming a 1-to-1 or single mapping where product is an object.
   const mapped = data.map((d: any) => ({
     ...d,
-    product: d.products || d.product // handle naming differences
+    product: d.products || d.product
   }));
   return mapped as unknown as (InventoryItem & { product: Product })[];
 }
 
-// Helper to build tree
-function buildTree(flatWarehouses: Warehouse[]): Warehouse[] {
-  const map = new Map<string, Warehouse>();
-  const roots: Warehouse[] = [];
+// Helper to build tree and compute metrics
+function buildTreeWithMetrics(flatWarehouses: Warehouse[], inventoryData: any[]): WarehouseWithMetrics[] {
+  const map = new Map<string, WarehouseWithMetrics>();
+  const roots: WarehouseWithMetrics[] = [];
 
-  const flat = JSON.parse(JSON.stringify(flatWarehouses));
-
-  flat.forEach((w: Warehouse) => {
-    w.children = [];
-    map.set(w.id, w);
+  // Initialize nodes
+  flatWarehouses.forEach(w => {
+    map.set(w.id, { 
+      ...w, 
+      children: [], 
+      metrics: { totalItems: 0, uniqueSkus: 0, lowStockAlerts: 0 } 
+    });
   });
 
-  flat.forEach((w: Warehouse) => {
+  // Calculate direct inventory metrics
+  const invByWarehouse = new Map<string, any[]>();
+  inventoryData.forEach(inv => {
+    if (!invByWarehouse.has(inv.warehouse_id)) {
+      invByWarehouse.set(inv.warehouse_id, []);
+    }
+    invByWarehouse.get(inv.warehouse_id)!.push(inv);
+  });
+
+  map.forEach(w => {
+    const invs = invByWarehouse.get(w.id) || [];
+    w.metrics.uniqueSkus = invs.length;
+    w.metrics.totalItems = invs.reduce((sum, item) => sum + item.quantity, 0);
+    w.metrics.lowStockAlerts = invs.filter(item => {
+      // product could be an object if from supabase, or we just have min_stock directly if from a joined query
+      const minStock = item.products?.min_stock ?? item.product?.min_stock ?? 0;
+      return item.quantity < minStock;
+    }).length;
+  });
+
+  // Build tree
+  map.forEach(w => {
     if (w.parent_id) {
       const parent = map.get(w.parent_id);
       if (parent) {
@@ -81,30 +112,62 @@ function buildTree(flatWarehouses: Warehouse[]): Warehouse[] {
     }
   });
 
+  // Aggregate metrics recursively (bottom-up approach)
+  // We need to traverse the tree and sum up metrics for parents
+  function aggregateMetrics(node: WarehouseWithMetrics) {
+    if (!node.children || node.children.length === 0) return;
+    
+    node.children.forEach(child => {
+      aggregateMetrics(child);
+      node.metrics.totalItems += child.metrics.totalItems;
+      node.metrics.uniqueSkus += child.metrics.uniqueSkus;
+      node.metrics.lowStockAlerts += child.metrics.lowStockAlerts;
+    });
+  }
+
+  roots.forEach(aggregateMetrics);
+
   return roots;
 }
 
 // ── Hook ──
 export function useWarehouses() {
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseWithMetrics[]>([]);
   const [warehousesFlat, setWarehousesFlat] = useState<Warehouse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchWarehouses = useCallback(async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from('warehouses')
-      .select('*')
-      .eq('active', true)
-      .order('created_at', { ascending: true });
+    let whData: any[] = [];
+    let invData: any[] = [];
 
-    if (data) {
-      const flat = data as Warehouse[];
-      setWarehousesFlat(flat);
-      setWarehouses(buildTree(flat));
+    if (!navigator.onLine) {
+      whData = await db.cachedWarehouses.toArray();
+      const rawInv = await db.cachedInventory.toArray();
+      // For offline, we also need product min_stock for alerts
+      const products = await db.cachedProducts.toArray();
+      const productMap = new Map(products.map(p => [p.id, p]));
+      
+      invData = rawInv.map(inv => ({
+        ...inv,
+        products: { min_stock: productMap.get(inv.product_id)?.min_stock || 0 }
+      }));
     } else {
-      console.error(error);
+      const [whRes, invRes] = await Promise.all([
+        supabase.from('warehouses').select('*').order('created_at', { ascending: true }),
+        supabase.from('inventory').select('warehouse_id, quantity, product_id, products(min_stock)')
+      ]);
+      
+      if (whRes.data) whData = whRes.data;
+      if (invRes.data) invData = invRes.data;
     }
+
+    if (whData) {
+      const flat = whData as Warehouse[];
+      setWarehousesFlat(flat);
+      setWarehouses(buildTreeWithMetrics(flat, invData));
+    }
+    
     setIsLoading(false);
   }, []);
 
@@ -125,13 +188,29 @@ export function useWarehouseDetail(id: string | undefined) {
     if (!id) return;
     setIsLoading(true);
     try {
-      const [whRes, invRes] = await Promise.all([
-        supabase.from('warehouses').select('*').eq('id', id).single(),
-        supabase.from('inventory').select('*, products(*)').eq('warehouse_id', id)
-      ]);
+      if (!navigator.onLine) {
+        const wh = await db.cachedWarehouses.get(id);
+        if (wh) setWarehouse(wh as unknown as Warehouse);
+        
+        const cachedInv = await db.cachedInventory.where('warehouse_id').equals(id).toArray();
+        const fullInv = [];
+        for (const inv of cachedInv) {
+          const product = await db.cachedProducts.get(inv.product_id);
+          fullInv.push({
+            ...inv,
+            products: product // join simulation
+          });
+        }
+        setInventory(fullInv);
+      } else {
+        const [whRes, invRes] = await Promise.all([
+          supabase.from('warehouses').select('*').eq('id', id).single(),
+          supabase.from('inventory').select('*, products(*)').eq('warehouse_id', id)
+        ]);
 
-      if (whRes.data) setWarehouse(whRes.data as Warehouse);
-      if (invRes.data) setInventory(invRes.data);
+        if (whRes.data) setWarehouse(whRes.data as Warehouse);
+        if (invRes.data) setInventory(invRes.data);
+      }
     } catch (e) {
       console.error('Error fetching warehouse detail:', e);
     } finally {

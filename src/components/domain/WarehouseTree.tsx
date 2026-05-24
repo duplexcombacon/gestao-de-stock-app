@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Warehouse as WarehouseIcon, CornerDownRight, Grid3X3, QrCode, Plus } from 'lucide-react';
+import { ChevronRight, Warehouse as WarehouseIcon, CornerDownRight, Grid3X3, QrCode, Plus, AlertCircle } from 'lucide-react';
 import { cn } from '@/utils/formatters';
-import type { Warehouse } from '@/types';
+import type { WarehouseWithMetrics } from '@/hooks/useWarehouses';
 
 const typeIcons = {
   warehouse: WarehouseIcon,
@@ -17,15 +17,29 @@ const typeLabels = {
 };
 
 interface WarehouseNodeProps {
-  warehouse: Warehouse;
+  warehouse: WarehouseWithMetrics;
   depth?: number;
+  searchQuery?: string;
+  forceExpand?: boolean;
 }
 
-function WarehouseNode({ warehouse, depth = 0 }: WarehouseNodeProps) {
+function WarehouseNode({ warehouse, depth = 0, searchQuery = '', forceExpand = false }: WarehouseNodeProps) {
   const [expanded, setExpanded] = useState(depth === 0);
   const navigate = useNavigate();
   const hasChildren = warehouse.children && warehouse.children.length > 0;
   const Icon = typeIcons[warehouse.type as keyof typeof typeIcons] || WarehouseIcon;
+
+  // React to forceExpand prop changes
+  useEffect(() => {
+    if (forceExpand !== undefined) {
+      setExpanded(forceExpand);
+    }
+  }, [forceExpand]);
+
+  // If there's a search query, always expand
+  useEffect(() => {
+    if (searchQuery) setExpanded(true);
+  }, [searchQuery]);
 
   return (
     <div>
@@ -51,7 +65,25 @@ function WarehouseNode({ warehouse, depth = 0 }: WarehouseNodeProps) {
         >
           <Icon size={16} className="text-text-muted shrink-0" />
           <span className="text-sm font-medium truncate">{warehouse.name}</span>
-          <span className="text-xs text-text-muted">{typeLabels[warehouse.type]}</span>
+          <span className="text-[10px] uppercase tracking-wider text-text-muted">{typeLabels[warehouse.type as keyof typeof typeLabels]}</span>
+          
+          {/* Alerts */}
+          {warehouse.metrics.lowStockAlerts > 0 && (
+            <div className="flex items-center gap-1 text-danger ml-2" title={`${warehouse.metrics.lowStockAlerts} alertas de stock`}>
+              <AlertCircle size={14} />
+            </div>
+          )}
+        </div>
+
+        {/* Metrics (Hidden on very small screens) */}
+        <div className="hidden sm:flex items-center gap-4 text-xs text-text-muted mr-4">
+          <span title="Total de itens">
+            <span className="font-mono text-text-primary">{warehouse.metrics.totalItems}</span> un
+          </span>
+          <span className="w-px h-3 bg-border"></span>
+          <span title="SKUs Únicos">
+            <span className="font-mono text-text-primary">{warehouse.metrics.uniqueSkus}</span> skus
+          </span>
         </div>
 
         {/* Actions */}
@@ -79,7 +111,13 @@ function WarehouseNode({ warehouse, depth = 0 }: WarehouseNodeProps) {
       {expanded && hasChildren && (
         <div>
           {warehouse.children!.map(child => (
-            <WarehouseNode key={child.id} warehouse={child} depth={depth + 1} />
+            <WarehouseNode 
+              key={child.id} 
+              warehouse={child} 
+              depth={depth + 1} 
+              searchQuery={searchQuery}
+              forceExpand={forceExpand}
+            />
           ))}
         </div>
       )}
@@ -87,11 +125,46 @@ function WarehouseNode({ warehouse, depth = 0 }: WarehouseNodeProps) {
   );
 }
 
-export function WarehouseTree({ warehouses }: { warehouses: Warehouse[] }) {
+// Helper to filter tree
+function filterTree(nodes: WarehouseWithMetrics[], query: string): WarehouseWithMetrics[] {
+  if (!query) return nodes;
+  const lowerQuery = query.toLowerCase();
+
+  return nodes.reduce((acc: WarehouseWithMetrics[], node) => {
+    // Check if node matches
+    const matches = node.name.toLowerCase().includes(lowerQuery);
+    
+    // Check if children match
+    const filteredChildren = node.children ? filterTree(node.children, query) : [];
+    
+    if (matches || filteredChildren.length > 0) {
+      acc.push({ ...node, children: filteredChildren });
+    }
+    
+    return acc;
+  }, []);
+}
+
+export function WarehouseTree({ warehouses, searchQuery = '', forceExpand = false }: { warehouses: WarehouseWithMetrics[], searchQuery?: string, forceExpand?: boolean }) {
+  const filteredWarehouses = filterTree(warehouses, searchQuery);
+
+  if (filteredWarehouses.length === 0) {
+    return (
+      <div className="py-8 text-center text-sm text-text-muted">
+        Nenhum resultado encontrado para "{searchQuery}"
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-1">
-      {warehouses.map(w => (
-        <WarehouseNode key={w.id} warehouse={w} />
+      {filteredWarehouses.map(w => (
+        <WarehouseNode 
+          key={w.id} 
+          warehouse={w} 
+          searchQuery={searchQuery}
+          forceExpand={forceExpand}
+        />
       ))}
     </div>
   );
