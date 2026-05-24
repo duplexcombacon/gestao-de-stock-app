@@ -7,10 +7,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { MobileNav } from '@/components/layout/MobileNav';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useNetworkState } from '@/hooks/useNetworkState';
 import { forceSync } from '@/lib/sync';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
@@ -54,10 +55,32 @@ function AppLayout() {
   const location = useLocation();
   const path = location.pathname;
   useNotifications();
+  const { isOnline } = useNetworkState();
+  const prevOnline = useRef<boolean | null>(null);
 
   useEffect(() => {
     forceSync(); // Tenta forçar a sincronização de dados offline mal a app abra
   }, []);
+
+  // Toast quando o estado de rede muda (ignora o estado inicial)
+  useEffect(() => {
+    if (prevOnline.current === null) {
+      prevOnline.current = isOnline;
+      return;
+    }
+    if (!isOnline && prevOnline.current) {
+      toast.warning('Modo Offline', {
+        description: 'Sem ligação à internet. A app continua disponível.',
+        duration: 5000,
+      });
+    } else if (isOnline && prevOnline.current === false) {
+      toast.success('Ligação restaurada', {
+        description: 'Voltou a estar online.',
+        duration: 3000,
+      });
+    }
+    prevOnline.current = isOnline;
+  }, [isOnline]);
 
   // Determinar o título da página com base no caminho atual
   let title = pageTitles[path] || '';

@@ -65,7 +65,7 @@ export default function MovementLog() {
             <p className="font-medium text-sm">{p?.name || '—'}</p>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-xs text-text-muted font-mono">{p?.sku}</span>
-              {m.batch && <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4">{m.batch.batch_code}</Badge>}
+              {m.batch && <Badge variant="default" className="text-[10px] py-0 px-1.5 h-4">{m.batch.batch_code}</Badge>}
             </div>
           </div>
         );

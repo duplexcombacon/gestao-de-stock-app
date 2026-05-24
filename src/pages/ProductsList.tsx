@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Table, type Column } from '@/components/ui/Table';
-import { categories } from '@/data/mock';
 import { formatCurrency } from '@/utils/formatters';
 import type { Product } from '@/types';
 import { useProducts } from '@/hooks/useProducts';
@@ -16,6 +15,11 @@ export default function ProductsList() {
   const { products, isLoading, getStockTotal } = useProducts();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+
+  const categoryOptions = (() => {
+    const derived = [...new Set(products.map(p => p.category))].filter(Boolean) as string[];
+    return derived.length ? derived : ['Bebidas', 'Alimentação', 'Limpeza', 'Lacticínios', 'Higiene'];
+  })();
 
   const filtered = products.filter(p => {
     const matchesSearch = !search ||
@@ -102,7 +106,7 @@ export default function ProductsList() {
           <Select
             options={[
               { value: 'all', label: 'Todas as categorias' },
-              ...categories.map(c => ({ value: c, label: c })),
+              ...categoryOptions.map(c => ({ value: c, label: c })),
             ]}
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}

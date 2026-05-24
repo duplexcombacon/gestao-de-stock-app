@@ -12,6 +12,43 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      workbox: {
+        // Precache todos os assets estáticos gerados pelo Vite
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,webp}'],
+        // SPA fallback: qualquer rota desconhecida serve o index.html em cache
+        navigateFallback: 'index.html',
+        // Excluir chamadas à API do fallback para não quebrar pedidos de rede
+        navigateFallbackDenylist: [/^\/api\//, /supabase\.co/],
+        runtimeCaching: [
+          {
+            // Supabase API — NetworkFirst: tenta rede, cai para cache em offline
+            urlPattern: /^https:\/\/[^/]*supabase\.co\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'supabase-api',
+              networkTimeoutSeconds: 10,
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24, // 24 h
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Assets estáticos — StaleWhileRevalidate: resposta rápida do cache,
+            // atualiza em background quando online
+            urlPattern: /\.(?:js|css|woff2?|png|svg|ico|webp)$/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'static-assets',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 dias
+              },
+            },
+          },
+        ],
+      },
       manifest: {
         name: 'StockFlow',
         short_name: 'StockFlow',

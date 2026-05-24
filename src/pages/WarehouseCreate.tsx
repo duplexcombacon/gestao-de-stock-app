@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, QrCode, Save } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { mockWarehousesFlat } from '@/data/mock';
+import { useWarehouses } from '@/hooks/useWarehouses';
+import { supabase } from '@/lib/supabase';
 import type { Warehouse } from '@/types';
 
 type WarehouseType = Warehouse['type'];
@@ -13,21 +14,32 @@ export default function WarehouseCreate() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const initialParent = params.get('parent') || '';
-  const parent = mockWarehousesFlat.find(w => w.id === initialParent);
+  const { warehousesFlat } = useWarehouses();
+  const parent = warehousesFlat.find(w => w.id === initialParent);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     name: '',
     parent_id: initialParent,
-    type: parent?.type === 'warehouse' ? 'corridor' : parent?.type === 'corridor' ? 'shelf' : 'warehouse' as WarehouseType,
+    type: 'warehouse' as WarehouseType,
     qr_code: `QR-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
     description: '',
   });
 
+  // Sugere o tipo com base no pai assim que os armazéns carregam
+  useEffect(() => {
+    if (!parent) return;
+    const suggested: WarehouseType =
+      parent.type === 'warehouse' ? 'corridor' :
+      parent.type === 'corridor' ? 'shelf' : 'warehouse';
+    setForm(prev => ({ ...prev, type: suggested }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parent?.id]);
+
   const parentOptions = useMemo(() => [
     { value: '', label: 'Sem pai · armazém principal' },
-    ...mockWarehousesFlat.filter(w => w.type !== 'shelf').map(w => ({ value: w.id, label: w.name })),
-  ], []);
+    ...warehousesFlat.filter(w => w.type !== 'shelf').map(w => ({ value: w.id, label: w.name })),
+  ], [warehousesFlat]);
 
   const update = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -44,10 +56,20 @@ export default function WarehouseCreate() {
     }
 
     setSaving(true);
-    // Aqui deve entrar insert real em warehouses.
-    await new Promise(resolve => setTimeout(resolve, 250));
-    setSaving(false);
-    navigate('/armazens');
+    try {
+      const { error } = await supabase.from('warehouses').insert({
+        name: form.name.trim(),
+        parent_id: form.parent_id || null,
+        type: form.type,
+        qr_code: form.qr_code.trim(),
+      });
+      if (error) throw error;
+      navigate('/armazens');
+    } catch (e: any) {
+      alert('Erro ao guardar localização: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

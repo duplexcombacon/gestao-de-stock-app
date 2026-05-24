@@ -1,18 +1,21 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, ScanBarcode } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
-import { categories } from '@/data/mock';
 import { useProducts } from '@/hooks/useProducts';
 import { CameraScanner } from '@/components/scanner/CameraScanner';
 
 export default function ProductCreate() {
   const navigate = useNavigate();
-  const { createProduct } = useProducts();
+  const { products, createProduct } = useProducts();
+  const categoryOptions = useMemo(() => {
+    const derived = [...new Set(products.map(p => p.category))].filter(Boolean) as string[];
+    return derived.length ? derived : ['Bebidas', 'Alimentação', 'Limpeza', 'Lacticínios', 'Higiene'];
+  }, [products]);
   const [form, setForm] = useState({
-    name: '', sku: '', category: categories[0], unit: 'un',
+    name: '', sku: '', category: 'Bebidas', unit: 'un',
     cost_price: '', sell_price: '', min_stock: '', barcode: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -78,7 +81,7 @@ export default function ProductCreate() {
           <Input label="SKU" placeholder="Ex: BEB-001" value={form.sku} onChange={e => update('sku', e.target.value)} error={errors.sku} />
           <Select
             label="Categoria"
-            options={categories.map(c => ({ value: c, label: c }))}
+            options={categoryOptions.map(c => ({ value: c, label: c }))}
             value={form.category}
             onChange={e => update('category', e.target.value)}
           />

@@ -44,7 +44,7 @@ export default function WarehousesList() {
         
         <div className="flex gap-2">
           <Button 
-            variant="outline" 
+            variant="secondary" 
             icon={<FolderOpen size={16} />}
             onClick={() => setForceExpand(true)}
             title="Expandir Tudo"
@@ -52,7 +52,7 @@ export default function WarehousesList() {
             <span className="hidden sm:inline">Expandir</span>
           </Button>
           <Button 
-            variant="outline" 
+            variant="secondary" 
             icon={<FolderClosed size={16} />}
             onClick={() => setForceExpand(false)}
             title="Recolher Tudo"

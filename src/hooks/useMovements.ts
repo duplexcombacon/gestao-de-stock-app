@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { db } from '@/lib/dexie';
 import { syncPendingOperations } from '@/lib/sync';
+import { getLocalMovements, addLocalMovement } from '@/services/movementStorage';
 import { useAuth } from './useAuth';
 import type { Movement, MovementType } from '@/types';
 
@@ -15,29 +17,71 @@ interface CreateMovementPayload {
   notes?: string;
 }
 
+// Funde movimentos do Supabase com movimentos locais, evitando duplicados:
+// um movimento local é considerado já sincronizado se existir um registo Supabase com
+// o mesmo produto, armazém, tipo e quantidade criado dentro de 30 segundos.
+function mergeMovements(remote: Movement[], local: Movement[]): Movement[] {
+  if (local.length === 0) return remote;
+  if (remote.length === 0) return local;
+
+  const unsynced = local.filter(lm => {
+    const lt = new Date(lm.created_at).getTime();
+    return !remote.some(
+      rm =>
+        rm.product_id === lm.product_id &&
+        rm.warehouse_id === lm.warehouse_id &&
+        rm.type === lm.type &&
+        rm.quantity === lm.quantity &&
+        Math.abs(new Date(rm.created_at).getTime() - lt) < 30_000,
+    );
+  });
+
+  return [...remote, ...unsynced].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+}
+
 export function useMovements() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  // Invalidar a query sempre que um movimento local é adicionado via movementStorage
+  useEffect(() => {
+    const handle = () => queryClient.invalidateQueries({ queryKey: ['movements'] });
+    window.addEventListener('stockflow:movements-updated', handle);
+    return () => window.removeEventListener('stockflow:movements-updated', handle);
+  }, [queryClient]);
 
   // ── Fetch Movements ──
   const { data: movements = [], isLoading } = useQuery({
     queryKey: ['movements'],
     queryFn: async () => {
-      // Offline fallback can be added here if needed, but for now we fetch directly
-      const { data, error } = await supabase
-        .from('movements')
-        .select(`
-          *,
-          product:products (id, name, sku, category),
-          warehouse:warehouses (id, name),
-          user:profiles (id, name),
-          batch:batches (id, batch_code)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(100);
+      let remoteMovements: Movement[] = [];
+      try {
+        // Offline fallback can be added here if needed, but for now we fetch directly
+        const { data, error } = await supabase
+          .from('movements')
+          .select(`
+            *,
+            product:products (id, name, sku, category),
+            warehouse:warehouses (id, name),
+            user:profiles (id, name),
+            batch:batches (id, batch_code)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(100);
 
-      if (error) throw error;
-      return data as Movement[];
+        if (error) {
+          console.warn('[useMovements] Supabase query falhou, a usar dados locais:', error.message);
+        } else {
+          remoteMovements = (data as Movement[]) || [];
+        }
+      } catch (e) {
+        console.warn('[useMovements] Supabase fetch error:', e);
+      }
+
+      const localMovements = getLocalMovements();
+      return mergeMovements(remoteMovements, localMovements);
     },
   });
 

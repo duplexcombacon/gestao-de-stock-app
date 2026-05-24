@@ -1,30 +1,51 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save, ScanBarcode } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { BarcodeScanner } from '@/components/domain/BarcodeScanner';
-import { categories, getProductById } from '@/data/mock';
+import { useProductDetail, useProducts } from '@/hooks/useProducts';
+import { supabase } from '@/lib/supabase';
 
 export default function ProductEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const product = getProductById(id || '');
-  const categoryOptions = useMemo(() => categories.length ? categories : ['Geral'], []);
+  const { product, isLoading } = useProductDetail(id);
+  const { products } = useProducts();
+  const categoryOptions = useMemo(() => {
+    const derived = [...new Set(products.map(p => p.category))].filter(Boolean) as string[];
+    return derived.length ? derived : ['Bebidas', 'Alimentação', 'Limpeza', 'Lacticínios', 'Higiene'];
+  }, [products]);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
-    name: product?.name || '',
-    sku: product?.sku || '',
-    category: product?.category || categoryOptions[0],
-    unit: product?.unit || 'un',
-    cost_price: String(product?.cost_price ?? ''),
-    sell_price: String(product?.sell_price ?? ''),
-    min_stock: String(product?.min_stock ?? ''),
-    barcode: product?.barcode || '',
+    name: '',
+    sku: '',
+    category: '',
+    unit: 'un',
+    cost_price: '',
+    sell_price: '',
+    min_stock: '',
+    barcode: '',
   });
+
+  // Preenche o formulário assim que o produto carrega do Supabase
+  useEffect(() => {
+    if (product) {
+      setForm({
+        name: product.name,
+        sku: product.sku,
+        category: product.category,
+        unit: product.unit,
+        cost_price: String(product.cost_price),
+        sell_price: String(product.sell_price),
+        min_stock: String(product.min_stock),
+        barcode: product.barcode || '',
+      });
+    }
+  }, [product]);
 
   const update = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -45,11 +66,36 @@ export default function ProductEdit() {
     }
 
     setSaving(true);
-    // Aqui deve entrar a mutation/update real: supabase.from('products').update(...).eq('id', id)
-    await new Promise(resolve => setTimeout(resolve, 250));
-    setSaving(false);
-    navigate(`/produtos/${id}`);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          name: form.name.trim(),
+          sku: form.sku.trim(),
+          category: form.category,
+          unit: form.unit,
+          cost_price: Number(form.cost_price),
+          sell_price: Number(form.sell_price),
+          min_stock: Number(form.min_stock),
+          barcode: form.barcode.trim() || null,
+        })
+        .eq('id', id!);
+      if (error) throw error;
+      navigate(`/produtos/${id}`);
+    } catch (e: any) {
+      alert('Erro ao guardar: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="size-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!product) {
     return (
