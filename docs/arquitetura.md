@@ -1,5 +1,7 @@
 # Arquitetura e Definição de Produto - Gestão de Stock
 
+Neste projeto adotámos o Supabase como Backend-as-a-Service (BaaS), ou seja, as chamadas à API não feitas através de métodos tradicionais como Node.js, mas sim diretamente na Supabase.
+
 ## Papéis de Utilizador
 
 - Administrador: Acesso total a configurações, utilizadores e relatórios globais.

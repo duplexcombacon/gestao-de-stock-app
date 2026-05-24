@@ -25,7 +25,7 @@ function WarehouseNode({ warehouse, depth = 0 }: WarehouseNodeProps) {
   const [expanded, setExpanded] = useState(depth === 0);
   const navigate = useNavigate();
   const hasChildren = warehouse.children && warehouse.children.length > 0;
-  const Icon = typeIcons[warehouse.type];
+  const Icon = typeIcons[warehouse.type as keyof typeof typeIcons] || WarehouseIcon;
 
   return (
     <div>

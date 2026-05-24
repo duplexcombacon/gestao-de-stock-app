@@ -30,7 +30,8 @@ export function useMovements() {
           *,
           product:products (id, name, sku, category),
           warehouse:warehouses (id, name),
-          user:profiles (id, name)
+          user:profiles (id, name),
+          batch:batches (id, batch_code)
         `)
         .order('created_at', { ascending: false })
         .limit(100);

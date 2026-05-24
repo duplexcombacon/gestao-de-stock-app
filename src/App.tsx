@@ -7,6 +7,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { MobileNav } from '@/components/layout/MobileNav';
+import { Toaster } from 'sonner';
+import { useNotifications } from '@/hooks/useNotifications';
 
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
@@ -24,6 +26,7 @@ import MovementLog from '@/pages/MovementLog';
 import Returns from '@/pages/Returns';
 import ReturnCreate from '@/pages/ReturnCreate';
 import AdminUsers from '@/pages/AdminUsers';
+import Profile from '@/pages/Profile';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,11 +45,13 @@ const pageTitles: Record<string, string> = {
   '/devolucoes': 'Devoluções',
   '/devolucoes/nova': 'Nova Devolução',
   '/admin/utilizadores': 'Gestão de Utilizadores',
+  '/perfil': 'O Meu Perfil',
 };
 
 function AppLayout() {
   const location = useLocation();
   const path = location.pathname;
+  useNotifications();
 
   let title = pageTitles[path] || '';
   if (!title) {
@@ -107,6 +112,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
+          <Toaster theme="dark" position="top-right" />
           <Routes>
             <Route path="/login" element={<Login />} />
             
@@ -146,6 +152,9 @@ export default function App() {
                   </RoleGuard>
                 } 
               />
+              
+              {/* Perfil de Utilizador (Todos podem aceder) */}
+              <Route path="/perfil" element={<Profile />} />
             </Route>
           </Routes>
         </BrowserRouter>

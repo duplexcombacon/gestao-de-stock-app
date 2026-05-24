@@ -707,6 +707,8 @@ $$;
 
 ## UPDATE DO LOOP INFINITO INVISIVEL
 
+````sql
+
 -- 1. Matar as queries encravadas que estão a bloquear o servidor
 SELECT pg_cancel_backend(pid) FROM pg_stat_activity WHERE state = 'active' AND pid <> pg_backend_pid();
 
@@ -733,3 +735,157 @@ ON public.profiles FOR DELETE USING (public.get_user_role() = 'admin');
 -- 5. O utilizador pode atualizar a própria password/dados (opcional na tabela profiles)
 CREATE POLICY "Users can update own profile data"
 ON public.profiles FOR UPDATE USING (id = auth.uid());
+
+```sql
+
+## ATUALIZAÇÃO DE GESTÃO DE LOTES
+
+-- ============================================================
+-- ATUALIZAÇÃO PARA SUPORTE FEFO (Batches)
+-- ============================================================
+-- Copiar este código e colar no SQL Editor do Supabase.
+-- Esta atualização modifica a função create_movement para
+-- abater (ou incrementar) automaticamente a quantidade na tabela batches.
+
+create or replace function public.create_movement(
+  p_product_id uuid,
+  p_warehouse_id uuid,
+  p_type text,
+  p_quantity integer,
+  p_user_id uuid,
+  p_destination_warehouse_id uuid default null,
+  p_batch_id uuid default null,
+  p_notes text default null
+)
+returns uuid
+language plpgsql
+security definer
+as $$
+declare
+  v_movement_id uuid;
+  v_current_stock integer;
+  v_new_stock integer;
+  v_batch_qty integer;
+begin
+  -- Validar tipo
+  if p_type not in ('in', 'out', 'transfer', 'adjustment') then
+    raise exception 'Tipo de movimento inválido: %', p_type;
+  end if;
+
+  -- Validar quantidade
+  if p_quantity <= 0 then
+    raise exception 'A quantidade deve ser superior a 0';
+  end if;
+
+  -- Para transferências, destino é obrigatório
+  if p_type = 'transfer' and p_destination_warehouse_id is null then
+    raise exception 'Transferências requerem um armazém de destino';
+  end if;
+
+  -- ==========================================
+  -- ATUALIZAÇÃO DE LOTE (SE FORNECIDO)
+  -- ==========================================
+  if p_batch_id is not null then
+    select quantity into v_batch_qty from public.batches where id = p_batch_id for update;
+
+    if v_batch_qty is null then
+      raise exception 'Lote não encontrado';
+    end if;
+
+    if p_type = 'in' then
+      update public.batches set quantity = quantity + p_quantity where id = p_batch_id;
+    elsif p_type in ('out', 'transfer', 'adjustment') then
+      if p_type != 'adjustment' and v_batch_qty < p_quantity then
+        raise exception 'Stock insuficiente no lote. Disponível: %, Pedido: %', v_batch_qty, p_quantity;
+      end if;
+
+      if p_type = 'adjustment' then
+        -- Ajuste direto de quantidade no lote (simplificação: assume-se que ajusta tudo)
+        -- Na realidade, adjustment num batch seria mais complexo, mas cobrimos out/transfer
+        update public.batches set quantity = quantity - p_quantity where id = p_batch_id;
+      else
+        update public.batches set quantity = quantity - p_quantity where id = p_batch_id;
+      end if;
+    end if;
+  end if;
+
+  -- ==========================================
+  -- ATUALIZAÇÃO DO INVENTÁRIO GERAL
+  -- ==========================================
+  -- Obter stock atual (com lock para evitar race conditions)
+  select quantity into v_current_stock
+  from public.inventory
+  where product_id = p_product_id and warehouse_id = p_warehouse_id
+  for update;
+
+  -- Se não existe registo de inventário, criar com 0
+  if v_current_stock is null then
+    if p_type in ('out', 'transfer') then
+      raise exception 'Stock insuficiente: produto não existe nesta localização';
+    end if;
+    insert into public.inventory (product_id, warehouse_id, quantity)
+    values (p_product_id, p_warehouse_id, 0);
+    v_current_stock := 0;
+  end if;
+
+  -- Validar stock para saídas e transferências
+  if p_type in ('out', 'transfer') and v_current_stock < p_quantity then
+    raise exception 'Stock insuficiente no armazém: disponível = %, pedido = %', v_current_stock, p_quantity;
+  end if;
+
+  -- Atualizar inventário de origem
+  if p_type = 'in' then
+    v_new_stock := v_current_stock + p_quantity;
+  elsif p_type in ('out', 'transfer') then
+    v_new_stock := v_current_stock - p_quantity;
+  elsif p_type = 'adjustment' then
+    v_new_stock := p_quantity; -- adjustment define o valor absoluto
+  end if;
+
+  update public.inventory
+  set quantity = v_new_stock, updated_at = now()
+  where product_id = p_product_id and warehouse_id = p_warehouse_id;
+
+  -- Para transferências: incrementar stock no destino
+  if p_type = 'transfer' then
+    insert into public.inventory (product_id, warehouse_id, quantity)
+    values (p_product_id, p_destination_warehouse_id, p_quantity)
+    on conflict (product_id, warehouse_id)
+    do update set quantity = inventory.quantity + p_quantity, updated_at = now();
+  end if;
+
+  -- Inserir movimento
+  insert into public.movements (
+    product_id, warehouse_id, destination_warehouse_id,
+    batch_id, type, quantity, user_id, notes
+  )
+  values (
+    p_product_id, p_warehouse_id, p_destination_warehouse_id,
+    p_batch_id, p_type, p_quantity, p_user_id, p_notes
+  )
+  returning id into v_movement_id;
+
+  -- Inserir no audit log
+  insert into public.audit_logs (entity, entity_id, action, user_id, new_data)
+  values (
+    'movement',
+    v_movement_id,
+    p_type,
+    p_user_id,
+    jsonb_build_object(
+      'product_id', p_product_id,
+      'warehouse_id', p_warehouse_id,
+      'destination_warehouse_id', p_destination_warehouse_id,
+      'batch_id', p_batch_id,
+      'quantity', p_quantity,
+      'old_stock', v_current_stock,
+      'new_stock', v_new_stock,
+      'type', p_type,
+      'notes', p_notes
+    )
+  );
+
+  return v_movement_id;
+end;
+$$;
+````

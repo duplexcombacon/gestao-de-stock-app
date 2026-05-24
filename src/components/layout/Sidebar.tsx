@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Package, ScanBarcode, Warehouse,
   ArrowLeftRight, RotateCcw, Users, LogOut,
@@ -18,6 +18,7 @@ const links = [
 
 export function Sidebar() {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   // Helper to get initials (e.g. "João Caixa" -> "JC", or "admin@admin.com" -> "AA")
   const getInitials = (name: string) => {
@@ -69,7 +70,11 @@ export function Sidebar() {
           <div className="size-8 rounded-full bg-surface-overlay flex items-center justify-center text-xs font-bold text-text-secondary">
             {getInitials(user?.name || user?.email || '')}
           </div>
-          <div className="flex-1 min-w-0">
+          <div 
+            className="flex-1 min-w-0 cursor-pointer hover:bg-surface-overlay p-1 -ml-1 rounded transition-colors"
+            onClick={() => navigate('/perfil')}
+            title="Editar Perfil"
+          >
             <p className="text-sm font-medium truncate">{user?.name || 'Utilizador'}</p>
             <p className="text-xs text-text-muted truncate">{user?.email}</p>
           </div>

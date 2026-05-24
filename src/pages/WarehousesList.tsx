@@ -1,9 +1,11 @@
+import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { WarehouseTree } from '@/components/domain/WarehouseTree';
 import { useWarehouses } from '@/hooks/useWarehouses';
 
 export default function WarehousesList() {
+  const navigate = useNavigate();
   const { warehouses, isLoading } = useWarehouses();
 
   if (isLoading) {
@@ -16,7 +18,7 @@ export default function WarehousesList() {
         <p className="text-sm text-text-secondary">
           {warehouses.length} armazén{warehouses.length !== 1 ? 's' : ''} principal{warehouses.length !== 1 ? 'is' : ''}
         </p>
-        <Button icon={<Plus size={16} />} size="sm" onClick={() => window.location.assign('/armazens/novo')}>Nova Localização</Button>
+        <Button icon={<Plus size={16} />} size="sm" onClick={() => navigate('/armazens/novo')}>Nova Localização</Button>
       </div>
 
       <div className="bg-surface-raised border border-border rounded-xl p-4">

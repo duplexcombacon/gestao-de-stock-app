@@ -21,6 +21,7 @@
     "react-router-dom": "^7.15.1",
     "react-zxing": "^2.1.0",
     "recharts": "^3.8.1",
+    "sonner": "^2.0.7",
     "tailwindcss": "^4.3.0"
   },
   "devDependencies": {
