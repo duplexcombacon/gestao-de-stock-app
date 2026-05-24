@@ -1,9 +1,11 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Printer, QrCode } from 'lucide-react';
+import { ArrowLeft, Printer, QrCode as QrCodeIcon } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useWarehouseDetail } from '@/hooks/useWarehouses';
-import QRCode from 'react-qr-code';
+import QRCodePackage from 'react-qr-code';
+
+const QRCode = (QRCodePackage as any).default || QRCodePackage;
 
 const typeLabels = {
   warehouse: 'Armazém',
@@ -46,7 +48,7 @@ export default function WarehouseQrPrint() {
             <Badge variant="accent">{typeLabels[warehouse.type]}</Badge>
             <h2 className="text-xl font-bold mt-2">QR Code da Localização</h2>
           </div>
-          <QrCode size={28} className="text-text-muted" />
+          <QrCodeIcon size={28} className="text-text-muted" />
         </div>
 
         <div className="mt-8 print:mt-0 flex flex-col items-center text-center">
