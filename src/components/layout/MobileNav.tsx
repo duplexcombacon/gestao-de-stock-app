@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Package, ScanBarcode, Warehouse, ArrowLeftRight,
+  LayoutDashboard, Package, ScanBarcode, Warehouse, ArrowLeftRight, UserCheck,
   MoreHorizontal, RotateCcw, Users, UserCircle, LogOut, X,
 } from 'lucide-react';
 import { cn } from '@/utils/formatters';
@@ -13,6 +13,7 @@ const mainTabs = [
   { to: '/scan', icon: ScanBarcode, label: 'Scan', roles: ['admin', 'gestor', 'caixa'] },
   { to: '/armazens', icon: Warehouse, label: 'Armazéns', roles: ['admin', 'gestor', 'caixa', 'auditor'] },
   { to: '/movimentos', icon: ArrowLeftRight, label: 'Movimentos', roles: ['admin', 'gestor', 'auditor'] },
+  { to: '/operadores/presencas', icon: UserCheck, label: 'Presenças', roles: ['admin', 'gestor'] },
 ];
 
 const moreLinks = [

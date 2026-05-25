@@ -210,7 +210,24 @@ create index idx_audit_user on public.audit_logs(user_id);
 create index idx_audit_created on public.audit_logs(created_at desc);
 
 -- ============================================================
--- 9. VIEWS (Para Dashboard e Alertas)
+-- 9. OPERATOR CHECK-INS (Presenças por Localização)
+-- ============================================================
+create table public.operator_checkins (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  warehouse_id uuid references public.warehouses(id) on delete cascade not null,
+  checked_in_at timestamptz default now() not null,
+  checked_out_at timestamptz
+);
+
+comment on table public.operator_checkins is 'Registo de presenças (check-in/check-out) dos operadores nos armazéns';
+
+create index idx_checkins_user on public.operator_checkins(user_id);
+create index idx_checkins_warehouse on public.operator_checkins(warehouse_id);
+create index idx_checkins_open on public.operator_checkins(warehouse_id) where checked_out_at is null;
+
+-- ============================================================
+-- 10. VIEWS (Para Dashboard e Alertas)
 -- ============================================================
 
 -- Vista de alertas: produtos abaixo do stock mínimo
@@ -593,6 +610,18 @@ create policy "System can insert audit logs"
   on public.audit_logs for insert
   with check (auth.uid() is not null);
 
+-- OPERATOR CHECK-INS: admin e gestor vêem tudo, utilizador vê as suas
+alter table public.operator_checkins enable row level security;
+
+create policy "Admins and managers can view all checkins"
+  on public.operator_checkins for select
+  using (public.get_user_role() in ('admin', 'gestor') or user_id = auth.uid());
+
+create policy "Users can check themselves in and out"
+  on public.operator_checkins for all
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
 -- ============================================================
 -- 12. TRIGGERS DE UPDATED_AT
 -- ============================================================
@@ -657,7 +686,7 @@ alter publication supabase_realtime add table public.returns;
 
 ## BUCKETS
 
-```sql
+````sql
 
 -- 1. Permitir leitura pública para que as imagens apareçam na app
 create policy "Leitura publica de imagens"
@@ -703,11 +732,11 @@ begin
  return v_role;
 end;
 $$;
-```
+````
 
 ## UPDATE DO LOOP INFINITO INVISIVEL
 
-```sql
+````sql
 
 -- 1. Matar as queries encravadas que estão a bloquear o servidor
 SELECT pg_cancel_backend(pid) FROM pg_stat_activity WHERE state = 'active' AND pid <> pg_backend_pid();
@@ -1000,4 +1029,147 @@ GRANT EXECUTE ON FUNCTION public.resolve_return(UUID, TEXT, UUID) TO anon;
 NOTIFY pgrst, 'reload schema';
 NOTIFY pgrst, 'reload config';
 $$
+````
+
+---
+
+## TABELA: OPERATOR_CHECKINS (Registo de Presenças por QR)
+
+Adiciona suporte ao registo automático de presença dos operadores quando leem um QR Code de localização no Scanner.
+
+```sql
+-- ============================================================
+-- OPERATOR_CHECKINS — Registo de presença por leitura de QR
+-- ============================================================
+
+create table public.operator_checkins (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  warehouse_id uuid references public.warehouses(id) on delete cascade not null,
+  checked_in_at timestamptz default now()
+);
+
+comment on table public.operator_checkins is 'Registo de presenças de operadores por leitura de QR Code de localização';
+
+-- Índices para pesquisa rápida por utilizador, localização e data
+create index idx_checkins_user on public.operator_checkins(user_id);
+create index idx_checkins_warehouse on public.operator_checkins(warehouse_id);
+create index idx_checkins_date on public.operator_checkins(checked_in_at desc);
+
+-- Ativar RLS
+alter table public.operator_checkins enable row level security;
+
+-- Admins e gestores veem todos os check-ins; operadores veem os seus próprios
+create policy "Admins e gestores veem todos os check-ins"
+  on public.operator_checkins for select
+  using (public.get_user_role() in ('admin', 'gestor') or user_id = auth.uid());
+
+-- Qualquer utilizador autenticado pode registar o seu check-in
+create policy "Utilizador autenticado pode fazer check-in"
+  on public.operator_checkins for insert
+  with check (auth.uid() is not null and user_id = auth.uid());
+
+-- Ativar realtime (opcional, para atualização em tempo real na página de presenças)
+alter publication supabase_realtime add table public.operator_checkins;
 ```
+
+## TABELA DE OPERADORES
+
+````sql
+-- ============================================================
+-- CRIAR TABELA operator_checkins (com entradas e saídas)
+-- ============================================================
+
+CREATE TABLE public.operator_checkins (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  warehouse_id uuid REFERENCES public.warehouses(id) ON DELETE CASCADE NOT NULL,
+  checked_in_at timestamptz DEFAULT now(),
+  checked_out_at timestamptz DEFAULT NULL
+);
+
+COMMENT ON TABLE public.operator_checkins IS 'Registo de entradas e saídas de operadores por leitura de QR Code de armazém';
+
+-- Índices
+CREATE INDEX idx_checkins_user ON public.operator_checkins(user_id);
+CREATE INDEX idx_checkins_warehouse ON public.operator_checkins(warehouse_id);
+CREATE INDEX idx_checkins_date ON public.operator_checkins(checked_in_at DESC);
+CREATE INDEX idx_checkins_open ON public.operator_checkins(user_id, warehouse_id)
+  WHERE checked_out_at IS NULL;
+
+-- RLS
+ALTER TABLE public.operator_checkins ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Admins e gestores veem todos os check-ins"
+  ON public.operator_checkins FOR SELECT
+  USING (public.get_user_role() IN ('admin', 'gestor') OR user_id = auth.uid());
+
+CREATE POLICY "Utilizador autenticado pode fazer check-in"
+  ON public.operator_checkins FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL AND user_id = auth.uid());
+
+CREATE POLICY "Utilizador pode atualizar o seu proprio check-out"
+  ON public.operator_checkins FOR UPDATE
+  USING (user_id = auth.uid() OR public.get_user_role() IN ('admin', 'gestor'));
+
+-- Realtime (opcional)
+ALTER PUBLICATION supabase_realtime ADD TABLE public.operator_checkins;
+```sql
+````
+
+## UPDATE 1
+
+-- 1. Apagar a tabela antiga se existir
+DROP TABLE IF EXISTS public.operator_checkins;
+
+-- 2. Criar a tabela nova com a coluna checked_out_at
+create table public.operator_checkins (
+id uuid default gen_random_uuid() primary key,
+user_id uuid references public.profiles(id) on delete cascade not null,
+warehouse_id uuid references public.warehouses(id) on delete cascade not null,
+checked_in_at timestamptz default now() not null,
+checked_out_at timestamptz
+);
+
+-- 3. Aplicar segurança e políticas de acesso (RLS)
+alter table public.operator_checkins enable row level security;
+
+create policy "Admins and managers can view all checkins"
+on public.operator_checkins for select
+using (public.get_user_role() in ('admin', 'gestor') or user_id = auth.uid());
+
+create policy "Users can check themselves in and out"
+on public.operator_checkins for all
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+## UPDATE 2
+
+-- 1. Apagar a tabela bloqueada
+DROP TABLE IF EXISTS public.operator_checkins CASCADE;
+
+-- 2. Recriar a tabela com as colunas certas
+CREATE TABLE public.operator_checkins (
+id uuid default gen_random_uuid() primary key,
+user_id uuid references public.profiles(id) on delete cascade not null,
+warehouse_id uuid references public.warehouses(id) on delete cascade not null,
+checked_in_at timestamptz default now() not null,
+checked_out_at timestamptz
+);
+
+-- 3. Garantir que a API tem acesso básico à tabela
+GRANT ALL ON TABLE public.operator_checkins TO anon, authenticated, service_role;
+
+-- 4. Ativar segurança
+ALTER TABLE public.operator_checkins ENABLE ROW LEVEL SECURITY;
+
+-- 5. Regra à prova de bala: Quem tem login feito pode ler as presenças
+CREATE POLICY "Qualquer utilizador com login pode ler presenças"
+ON public.operator_checkins FOR SELECT
+USING (auth.uid() IS NOT NULL);
+
+-- 6. Regra à prova de bala: Quem tem login feito pode inserir/atualizar a sua presença
+CREATE POLICY "Utilizadores podem gerir as suas presenças"
+ON public.operator_checkins FOR ALL
+USING (auth.uid() IS NOT NULL)
+WITH CHECK (auth.uid() IS NOT NULL);

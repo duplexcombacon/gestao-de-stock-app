@@ -1,9 +1,11 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, QrCode, Package } from 'lucide-react';
+import { ArrowLeft, QrCode, Edit2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Table, type Column } from '@/components/ui/Table';
-import { useWarehouseDetail } from '@/hooks/useWarehouses';
+import { useWarehouseDetail, useWarehouses } from '@/hooks/useWarehouses';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
 import { formatCurrency } from '@/utils/formatters';
 import type { InventoryItem } from '@/types';
 
@@ -11,6 +13,24 @@ export default function WarehouseDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { warehouse, inventory, isLoading } = useWarehouseDetail(id);
+  const { deleteWarehouse } = useWarehouses();
+  const { hasRole } = useAuth();
+
+  const canEdit = hasRole('admin', 'gestor');
+
+  const handleDelete = async () => {
+    if (!warehouse) return;
+    if (!confirm(`Tens a certeza que pretendes eliminar a localização "${warehouse.name}"?`)) return;
+    
+    try {
+      await deleteWarehouse(warehouse.id);
+      toast.success('Localização eliminada com sucesso!');
+      navigate('/armazens');
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao eliminar localização. Verifica se existem sub-localizações ou produtos associados.');
+    }
+  };
 
   if (isLoading) {
     return <div className="flex justify-center py-20 text-text-muted">A carregar detalhes...</div>;
@@ -82,13 +102,27 @@ export default function WarehouseDetail() {
       {/* Header */}
       <div className="bg-surface-raised border border-border rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <Badge variant="accent">{typeLabels[warehouse.type as keyof typeof typeLabels]}</Badge>
+          <Badge variant="accent">{typeLabels[warehouse.type as keyof typeof typeLabels] || warehouse.type}</Badge>
           <h2 className="text-xl font-bold mt-2">{warehouse.name}</h2>
           <p className="text-sm text-text-muted mt-1">{totalItems} unidades · {inventory.length} produtos</p>
         </div>
-        <Button variant="secondary" icon={<QrCode size={16} />} onClick={() => navigate(`/armazens/${warehouse.id}/qr`)}>
-          Gerar QR Code
-        </Button>
+        <div className="flex items-center gap-2">
+          {!['corridor', 'shelf'].includes(warehouse.type) && (
+            <Button variant="secondary" icon={<QrCode size={16} />} onClick={() => navigate(`/armazens/${warehouse.id}/qr`)}>
+              <span className="hidden sm:inline">Gerar QR</span>
+            </Button>
+          )}
+          {canEdit && (
+            <>
+              <Button variant="outline" icon={<Edit2 size={16} />} onClick={() => navigate(`/armazens/${warehouse.id}/editar`)}>
+                <span className="hidden sm:inline">Editar</span>
+              </Button>
+              <Button variant="danger" icon={<Trash2 size={16} />} onClick={handleDelete}>
+                <span className="hidden sm:inline">Eliminar</span>
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Inventory */}

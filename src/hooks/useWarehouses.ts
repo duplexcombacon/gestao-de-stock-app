@@ -176,7 +176,33 @@ export function useWarehouses() {
     fetchWarehouses();
   }, [fetchWarehouses]);
 
-  return { warehouses, warehousesFlat, isLoading, refreshWarehouses: fetchWarehouses };
+  const createWarehouse = async (data: Partial<Warehouse>) => {
+    const { error } = await supabase.from('warehouses').insert(data);
+    if (error) throw error;
+    await fetchWarehouses();
+  };
+
+  const updateWarehouse = async (id: string, data: Partial<Warehouse>) => {
+    const { error } = await supabase.from('warehouses').update(data).eq('id', id);
+    if (error) throw error;
+    await fetchWarehouses();
+  };
+
+  const deleteWarehouse = async (id: string) => {
+    const { error } = await supabase.from('warehouses').delete().eq('id', id);
+    if (error) throw error;
+    await fetchWarehouses();
+  };
+
+  return { 
+    warehouses, 
+    warehousesFlat, 
+    isLoading, 
+    refreshWarehouses: fetchWarehouses,
+    createWarehouse,
+    updateWarehouse,
+    deleteWarehouse
+  };
 }
 
 // ── Hook for Warehouse Details ──
