@@ -15,6 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toggleCheckin } from '@/hooks/useCheckins';
 import { CameraScanner } from '@/components/scanner/CameraScanner';
 import { cn } from '@/utils/formatters';
+import { isValidBarcode } from '@/utils/validators';
 import type { Warehouse, Product, InventoryItem, NewProductFormData, ScanMode } from '@/types';
 
 // ─────────────────────────────────────────────────────────────
@@ -58,7 +59,7 @@ const LOCATION_TYPE_LABEL: Record<string, string> = {
 };
 
 const EMPTY_FORM: NewProductFormData = {
-  barcode: '', name: '', sku: '', category: 'Bebidas', unit: 'un', cost_price: 0, sell_price: 0, min_stock: 0,
+  barcode: '', name: '', sku: '', category: 'Bebidas', unit: 'un', cost_price: '', sell_price: '', min_stock: '',
 };
 
 // Removed CameraScanner, now imported
@@ -83,9 +84,20 @@ function QtyStepper({ value, onChange, min = 1 }: QtyStepperProps) {
       >
         <Minus size={16} />
       </button>
-      <span className="w-12 text-center font-mono font-bold text-text-primary text-xl">
-        {value}
-      </span>
+      <input
+        type="number"
+        value={value === 0 ? '' : value}
+        onChange={(e) => {
+          const val = parseInt(e.target.value, 10);
+          onChange(isNaN(val) ? 0 : val);
+        }}
+        onBlur={(e) => {
+          let val = parseInt(e.target.value, 10);
+          if (isNaN(val) || val < min) val = min;
+          onChange(val);
+        }}
+        className="w-16 text-center font-mono font-bold text-text-primary text-xl bg-transparent border-b-2 border-transparent focus:border-border focus:outline-none"
+      />
       <button
         type="button"
         onClick={() => onChange(value + 1)}
@@ -201,6 +213,12 @@ export default function ScanMobile() {
           showFeedback('error', 'Criação de novos produtos indisponível em modo offline');
           return;
         }
+        
+        if (!isValidBarcode(text)) {
+          showFeedback('error', 'Código de barras inválido (use 8, 12, 13 ou 14 dígitos numéricos).');
+          return;
+        }
+
         setScannedProduct(null);
         setUnknownBarcode(text);
         setNewProductForm({ ...EMPTY_FORM, barcode: text });
@@ -253,7 +271,13 @@ export default function ScanMobile() {
     }
     setIsSaving(true);
     try {
-      const product = await createProductFromBarcode(newProductForm);
+      const productData = {
+        ...newProductForm,
+        cost_price: parseFloat(newProductForm.cost_price as string) || 0,
+        sell_price: parseFloat(newProductForm.sell_price as string) || 0,
+        min_stock: parseInt(newProductForm.min_stock as string, 10) || 0,
+      };
+      const product = await createProductFromBarcode(productData);
       // Register product in the active location's inventory (qty 0 as baseline)
       await createMovement('in', product.id, activeLocation.id, 0);
       // Refresh inventory list
@@ -580,9 +604,9 @@ export default function ScanMobile() {
                 min="0"
                 step="0.01"
                 placeholder="0.00"
-                value={newProductForm.cost_price || ''}
+                value={newProductForm.cost_price}
                 onChange={e =>
-                  setNewProductForm(f => ({ ...f, cost_price: parseFloat(e.target.value) || 0 }))
+                  setNewProductForm(f => ({ ...f, cost_price: e.target.value }))
                 }
               />
               <Input
@@ -591,9 +615,9 @@ export default function ScanMobile() {
                 min="0"
                 step="0.01"
                 placeholder="0.00"
-                value={newProductForm.sell_price || ''}
+                value={newProductForm.sell_price}
                 onChange={e =>
-                  setNewProductForm(f => ({ ...f, sell_price: parseFloat(e.target.value) || 0 }))
+                  setNewProductForm(f => ({ ...f, sell_price: e.target.value }))
                 }
               />
               <Input
@@ -602,9 +626,9 @@ export default function ScanMobile() {
                 min="0"
                 step="1"
                 placeholder="0"
-                value={newProductForm.min_stock || ''}
+                value={newProductForm.min_stock}
                 onChange={e =>
-                  setNewProductForm(f => ({ ...f, min_stock: parseInt(e.target.value) || 0 }))
+                  setNewProductForm(f => ({ ...f, min_stock: e.target.value }))
                 }
               />
             </div>

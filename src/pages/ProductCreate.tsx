@@ -6,6 +6,7 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { useProducts } from '@/hooks/useProducts';
 import { CameraScanner } from '@/components/scanner/CameraScanner';
+import { isValidBarcode } from '@/utils/validators';
 
 export default function ProductCreate() {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ export default function ProductCreate() {
     if (!form.cost_price || Number(form.cost_price) <= 0) newErrors.cost_price = 'Preço deve ser positivo';
     if (!form.sell_price || Number(form.sell_price) <= 0) newErrors.sell_price = 'Preço deve ser positivo';
     if (!form.min_stock || Number(form.min_stock) < 0) newErrors.min_stock = 'Stock mínimo inválido';
+    if (form.barcode.trim() && !isValidBarcode(form.barcode)) newErrors.barcode = 'Código inválido (apenas 8, 12, 13 ou 14 dígitos)';
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -107,6 +109,7 @@ export default function ProductCreate() {
                   placeholder="Inserir manualmente..." 
                   value={form.barcode} 
                   onChange={e => update('barcode', e.target.value)} 
+                  error={errors.barcode}
                 />
               </div>
               <Button

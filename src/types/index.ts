@@ -109,9 +109,9 @@ export interface NewProductFormData {
   sku: string;
   category: string;
   unit: string;
-  cost_price: number;
-  sell_price: number;
-  min_stock: number;
+  cost_price: number | string;
+  sell_price: number | string;
+  min_stock: number | string;
 }
 
 // ── Dashboard ──

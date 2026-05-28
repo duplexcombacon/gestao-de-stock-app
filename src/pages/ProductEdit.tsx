@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { BarcodeScanner } from '@/components/domain/BarcodeScanner';
 import { useProductDetail, useProducts } from '@/hooks/useProducts';
 import { supabase } from '@/lib/supabase';
+import { isValidBarcode } from '@/utils/validators';
 
 export default function ProductEdit() {
   const { id } = useParams<{ id: string }>();
@@ -59,6 +60,7 @@ export default function ProductEdit() {
     if (Number.isNaN(Number(form.cost_price)) || Number(form.cost_price) < 0) nextErrors.cost_price = 'Preço inválido';
     if (Number.isNaN(Number(form.sell_price)) || Number(form.sell_price) < 0) nextErrors.sell_price = 'Preço inválido';
     if (Number.isNaN(Number(form.min_stock)) || Number(form.min_stock) < 0) nextErrors.min_stock = 'Stock mínimo inválido';
+    if (form.barcode.trim() && !isValidBarcode(form.barcode)) nextErrors.barcode = 'Código inválido (apenas 8, 12, 13 ou 14 dígitos)';
 
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
@@ -150,7 +152,7 @@ export default function ProductEdit() {
           <Input label="Preço de Venda (€)" type="number" step="0.01" value={form.sell_price} onChange={e => update('sell_price', e.target.value)} error={errors.sell_price} />
           <Input label="Stock Mínimo" type="number" value={form.min_stock} onChange={e => update('min_stock', e.target.value)} error={errors.min_stock} />
           <div className="sm:col-span-2">
-            <Input label="Código de Barras" value={form.barcode} onChange={e => update('barcode', e.target.value)} />
+            <Input label="Código de Barras" value={form.barcode} onChange={e => update('barcode', e.target.value)} error={errors.barcode} />
             <Button className="mt-2" variant="secondary" size="sm" icon={<ScanBarcode size={14} />} onClick={() => setScannerOpen(true)}>
               Ler com câmara
             </Button>

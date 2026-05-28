@@ -543,7 +543,7 @@ create policy "Admin can manage all profiles"
   on public.profiles for all
   using (public.get_user_role() = 'admin');
 
--- PRODUCTS: todos autenticados podem ler; admin e gestor podem editar
+-- PRODUCTS: todos autenticados podem ler; admin e gestor podem editar, caixa pode inserir (scanner)
 create policy "Authenticated users can view products"
   on public.products for select
   using (auth.uid() is not null);
@@ -551,6 +551,10 @@ create policy "Authenticated users can view products"
 create policy "Admin and gestor can manage products"
   on public.products for all
   using (public.get_user_role() in ('admin', 'gestor'));
+
+create policy "Caixa can insert new products"
+  on public.products for insert
+  with check (public.get_user_role() = 'caixa');
 
 -- WAREHOUSES: todos autenticados podem ler; admin e gestor podem editar
 create policy "Authenticated users can view warehouses"
