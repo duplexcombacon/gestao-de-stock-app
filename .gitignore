@@ -29,4 +29,5 @@ dist-ssr
 
 # documentos
 
-*docs
+.docs
+docs/apresentacao/

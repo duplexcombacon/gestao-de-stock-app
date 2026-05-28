@@ -1,0 +1,57 @@
+{
+  "project_overview": {
+    "name": "Gestão de Stock App (StockFlow)",
+    "main_goal": "A modern, mobile-first, and offline-capable stock management application for SMEs. It transforms smartphones into professional scanners to manage inventory, movements, warehouses, and operator check-ins.",
+    "tech_stack": {
+      "frontend": "React 19, TypeScript 6, Vite 8",
+      "styling": "Tailwind CSS 4",
+      "backend_as_a_service": "Supabase (PostgreSQL, Auth, RLS, Realtime)",
+      "offline_storage": "Dexie.js (IndexedDB wrapper)",
+      "pwa": "vite-plugin-pwa, Workbox",
+      "other_libraries": "react-router-dom, react-zxing (scanners), lucide-react (icons), recharts (charts), sonner (notifications)"
+    },
+    "architecture": "Component-based frontend architecture with Custom Hooks acting as the Controller/Service layer (MVVM-like). Supabase handles remote state and auth, while Dexie handles local offline caching and sync queues."
+  },
+  "active_context": {
+    "current_status": "Advanced development / Beta ready.",
+    "functional_features": [
+      "Supabase Authentication & Role-Based Access Control (Admin, Gestor, Caixa)",
+      "Database schema and RLS policies",
+      "Mobile-first Scanner (QR & Barcodes) with manual entry fallback",
+      "Offline-first synchronization via Dexie (pendingOps queue)",
+      "Product CRUD, Warehouse topology, Inventory tracking",
+      "Stock movements (in, out, transfer) with FEFO (First-Expire, First-Out) batch support",
+      "Operator Check-ins using QR codes"
+    ],
+    "recent_updates": "Added barcode format validation and fixed UI input bugs for decimal prices and manual quantity entry. Created pitch presentation structure.",
+    "next_steps": "Testing the application in real-world scenarios (Pilot), polishing the PWA installation experience, and potentially adding AI-based analytics or ERP integrations."
+  },
+  "architectural_decisions": {
+    "data_access": "All Supabase/Dexie calls are encapsulated inside custom hooks (e.g., useProducts.ts, useWarehouses.ts).",
+    "offline_first": "The app prioritizes local Dexie storage when offline. Mutations are queued in a 'pendingOps' table and synchronized when network connectivity is restored (via sync.ts).",
+    "ui_components": "Atomic design pattern for generic UI components (src/components/ui/) such as Input, Button, Badge. Domain-specific components are kept separate (src/components/domain/ or scanner/).",
+    "error_handling": "Handled locally within components using local state (e.g., feedback objects) or global toast notifications (sonner) for user feedback. Graceful degradation when offline.",
+    "database_security": "Heavily reliant on PostgreSQL Row Level Security (RLS) on Supabase. Policies are strictly tied to user roles (via profiles table)."
+  },
+  "rules_and_constraints": {
+    "language": "TypeScript is mandatory. Avoid 'any' types; strictly type domain entities in src/types/index.ts.",
+    "styling": "Use Tailwind CSS utility classes exclusively. Use the custom 'cn' utility function from formatters.ts to merge conditional classes dynamically.",
+    "naming_conventions": {
+      "components": "PascalCase (e.g., ProductCreate.tsx)",
+      "hooks_and_utils": "camelCase (e.g., useProducts.ts, validators.ts)",
+      "database": "snake_case for tables, columns, and remote types"
+    },
+    "forbidden_practices": "Do not execute direct Supabase mutations inside UI components; always use or create a function in the corresponding custom hook. Do not bypass RLS policies; test functionality across different user roles.",
+    "linters": "ESLint is configured. Ensure code passes 'npm run lint'."
+  },
+  "environment_and_setup": {
+    "start_command": "npm run dev",
+    "build_command": "npm run build",
+    "lint_command": "npm run lint",
+    "environment_variables": [
+      "VITE_SUPABASE_URL (Required for Supabase connection)",
+      "VITE_SUPABASE_ANON_KEY (Required for Supabase connection)"
+    ],
+    "tests": "No formal testing suite (Jest/Vitest) detected in package.json. Testing is currently manual."
+  }
+}
